@@ -1,0 +1,17 @@
+# --- Backend (Spring Boot / Maven) ---
+backend/target/
+backend/.mvn/
+backend/.idea/
+backend/*.iml
+backend/.settings/
+backend/bin/
+
+# --- Frontend (Node / React) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# --- Environment & OS files ---
+.env
+.DS_Store
+*.log
