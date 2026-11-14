@@ -1,9 +1,11 @@
 package ISIMS.olive_connect.controller;
 
 import ISIMS.olive_connect.dto.ApiResponse;
+import ISIMS.olive_connect.dto.ForgotPasswordRequest;
 import ISIMS.olive_connect.dto.JwtResponse;
 import ISIMS.olive_connect.dto.LoginRequest;
 import ISIMS.olive_connect.dto.RegisterRequest;
+import ISIMS.olive_connect.dto.ResetPasswordRequest;
 import ISIMS.olive_connect.dto.VerifyAccountRequest;
 import ISIMS.olive_connect.service.AuthService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -50,5 +52,23 @@ public class AuthController {
         }
         String newAccessToken = authService.refreshToken(refreshToken);
         return ResponseEntity.ok(Map.of("accessToken", newAccessToken, "tokenType", "Bearer"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        String message = authService.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(new ApiResponse(true, message));
+    }
+
+    @PostMapping("/verify-reset-code")
+    public ResponseEntity<ApiResponse> verifyResetCode(@RequestParam String email, @RequestParam String code) {
+        String message = authService.verifyResetCode(email, code);
+        return ResponseEntity.ok(new ApiResponse(true, message));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        String message = authService.resetPassword(request);
+        return ResponseEntity.ok(new ApiResponse(true, message));
     }
 }

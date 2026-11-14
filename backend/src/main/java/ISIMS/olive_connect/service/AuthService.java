@@ -3,6 +3,7 @@ package ISIMS.olive_connect.service;
 import ISIMS.olive_connect.dto.JwtResponse;
 import ISIMS.olive_connect.dto.LoginRequest;
 import ISIMS.olive_connect.dto.RegisterRequest;
+import ISIMS.olive_connect.dto.ResetPasswordRequest;
 import ISIMS.olive_connect.entity.RefreshToken;
 import ISIMS.olive_connect.entity.Role;
 import ISIMS.olive_connect.entity.User;
@@ -156,5 +157,70 @@ public class AuthService {
                     return jwtUtils.generateJwtToken(user);
                 })
                 .orElseThrow(() -> new TokenRefreshException("Refresh token is invalid or not found in database!"));
+    }
+
+    public String forgotPassword(String email) {
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        // Security best practice: Don't reveal whether an email exists in the system
+        if (userOpt.isEmpty()) {
+            return "If an account exists with this email, a password reset code has been sent.";
+        }
+
+        User user = userOpt.get();
+
+        // Generate 6-digit code (15-min expiry) using SecureRandom
+        String resetCode = String.format("%06d", new java.security.SecureRandom().nextInt(1000000));
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.MINUTE, 15);
+
+        user.setResetPasswordCode(resetCode);
+        user.setResetPasswordCodeExpiresAt(calendar.getTime());
+        userRepository.save(user);
+
+        emailService.sendPasswordResetEmail(user.getEmail(), resetCode);
+
+        return "If an account exists with this email, a password reset code has been sent.";
+    }
+
+    public String verifyResetCode(String email, String code) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Invalid email or verification code."));
+
+        if (user.getResetPasswordCode() == null || !user.getResetPasswordCode().equals(code)) {
+            throw new RuntimeException("Invalid verification code.");
+        }
+
+        if (user.getResetPasswordCodeExpiresAt().before(new Date())) {
+            throw new RuntimeException("Verification code has expired.");
+        }
+
+        return "Code verified. You may now set a new password.";
+    }
+
+    public String resetPassword(ResetPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Invalid email or verification code."));
+
+        if (user.getResetPasswordCode() == null || !user.getResetPasswordCode().equals(request.getCode())) {
+            throw new RuntimeException("Invalid verification code.");
+        }
+
+        if (user.getResetPasswordCodeExpiresAt().before(new Date())) {
+            throw new RuntimeException("Verification code has expired.");
+        }
+
+        // 1. Update password with BCrypt hash
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+
+        // 2. Clear reset code so it cannot be reused
+        user.setResetPasswordCode(null);
+        user.setResetPasswordCodeExpiresAt(null);
+        userRepository.save(user);
+
+        // 3. Revoke all active refresh tokens for this user (force re-login on all devices)
+        refreshTokenService.revokeToken(user.getEmail());
+
+        return "Password has been reset successfully. Please log in with your new password.";
     }
 }
