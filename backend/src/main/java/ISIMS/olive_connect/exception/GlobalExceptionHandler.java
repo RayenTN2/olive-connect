@@ -4,6 +4,7 @@ import ISIMS.olive_connect.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -45,5 +46,29 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ApiResponse(false, "Malformed JSON or invalid role value. Allowed roles: FARMER, ADMIN, TEAM_LEADER, LOGISTICS_MANAGER, COLLECTION_MANAGER, PRESSROOM_MANAGER."));
+    }
+
+    // 5. Catches authentication failures (bad credentials, disabled/unapproved account)
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse> handleAuthenticationException(AuthenticationException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(new ApiResponse(false, ex.getMessage()));
+    }
+
+    // 6. Catches token refresh errors (expired, revoked, missing in db)
+    @ExceptionHandler(TokenRefreshException.class)
+    public ResponseEntity<ApiResponse> handleTokenRefreshException(TokenRefreshException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED) // 401 Unauthorized
+                .body(new ApiResponse(false, ex.getMessage()));
+    }
+
+    // 7. Catches invalid token errors
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ApiResponse> handleInvalidTokenException(InvalidTokenException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED) // 401 Unauthorized
+                .body(new ApiResponse(false, ex.getMessage()));
     }
 }

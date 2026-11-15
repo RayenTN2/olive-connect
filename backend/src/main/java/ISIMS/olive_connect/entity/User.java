@@ -33,6 +33,17 @@ public class User implements UserDetails {
     private String verificationCode;
     private Date verificationCodeExpiresAt;
 
+    // Add inside ISIMS.olive_connect.entity.User
+    private String resetPasswordCode;
+    private Date resetPasswordCodeExpiresAt;
+
+    // Getters and Setters
+    public String getResetPasswordCode() { return resetPasswordCode; }
+    public void setResetPasswordCode(String resetPasswordCode) { this.resetPasswordCode = resetPasswordCode; }
+
+    public Date getResetPasswordCodeExpiresAt() { return resetPasswordCodeExpiresAt; }
+    public void setResetPasswordCodeExpiresAt(Date resetPasswordCodeExpiresAt) { this.resetPasswordCodeExpiresAt = resetPasswordCodeExpiresAt; }
+
     // Getters and Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -73,6 +84,9 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        if (role == null) {
+            return List.of();
+        }
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
