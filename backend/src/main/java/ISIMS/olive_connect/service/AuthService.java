@@ -223,4 +223,25 @@ public class AuthService {
 
         return "Password has been reset successfully. Please log in with your new password.";
     }
+
+    public String logout(String incomingRefreshToken, HttpServletResponse response) {
+        // 1. Delete the refresh token from MongoDB if present
+        if (incomingRefreshToken != null && !incomingRefreshToken.isBlank()) {
+            refreshTokenService.findByToken(incomingRefreshToken)
+                    .ifPresent(token -> refreshTokenService.revokeToken(token.getEmail()));
+        }
+
+        // 2. Clear the HttpOnly cookie in the client's browser
+        Cookie cookie = new Cookie("refreshToken", null);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // Match your login cookie setting (true in production HTTPS)
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // Instructs browser to delete the cookie immediately
+        response.addCookie(cookie);
+
+        // 3. Clear Spring Security context for the current thread
+        SecurityContextHolder.clearContext();
+
+        return "Logged out successfully.";
+    }
 }
