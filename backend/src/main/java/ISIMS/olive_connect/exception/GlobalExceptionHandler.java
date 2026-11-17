@@ -28,7 +28,7 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse(false, ex.getMessage()));
     }
 
-    // 3. Catches @Valid DTO errors (@NotBlank, @Email, @Size)
+    // 3. Catches @Valid DTO errors (@NotBlank, @Email, @Size, @Pattern)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse> handleValidationException(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getFieldErrors().stream()
@@ -45,10 +45,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse> handleJsonParseException(HttpMessageNotReadableException ex) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(new ApiResponse(false, "Malformed JSON or invalid role value. Allowed roles: FARMER, ADMIN, TEAM_LEADER, LOGISTICS_MANAGER, COLLECTION_MANAGER, PRESSROOM_MANAGER."));
+                .body(new ApiResponse(false, "Malformed JSON or invalid enum value. Allowed roles: FARMER, ADMIN, TEAM_LEADER, LOGISTICS_MANAGER, COLLECTION_MANAGER, MILL_MANAGER."));
     }
 
-    // 5. Catches authentication failures (bad credentials, disabled/unapproved account)
+    // 5. Catches authentication failures (bad credentials, disabled/unapproved/suspended account)
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse> handleAuthenticationException(AuthenticationException ex) {
         return ResponseEntity

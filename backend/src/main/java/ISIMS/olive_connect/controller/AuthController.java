@@ -71,5 +71,13 @@ public class AuthController {
         String message = authService.resetPassword(request);
         return ResponseEntity.ok(new ApiResponse(true, message));
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
+        String message = authService.logout(refreshToken, response);
+        return ResponseEntity.ok(new ApiResponse(true, message));
+    }
 }
 
