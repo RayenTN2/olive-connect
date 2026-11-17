@@ -1,10 +1,13 @@
 package ISIMS.olive_connect.controller;
 
 import ISIMS.olive_connect.dto.ApiResponse;
+import ISIMS.olive_connect.dto.CreateStaffRequest;
 import ISIMS.olive_connect.dto.RejectUserRequest;
 import ISIMS.olive_connect.dto.UserSummaryResponse;
 import ISIMS.olive_connect.service.AdminUserService;
 import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -42,5 +45,12 @@ public class AdminUserController {
             @Valid @RequestBody RejectUserRequest request) {
         String message = adminUserService.rejectUser(id, request.getRejectionReason());
         return ResponseEntity.ok(new ApiResponse(true, message));
+    }
+
+    // Create internal staff account
+    @PostMapping("/staff")
+    public ResponseEntity<UserSummaryResponse> createStaffUser(@Valid @RequestBody CreateStaffRequest request) {
+        UserSummaryResponse createdStaff = adminUserService.createStaffUser(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdStaff);
     }
 }
