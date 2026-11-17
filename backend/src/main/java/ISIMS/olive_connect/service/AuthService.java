@@ -15,6 +15,9 @@ import ISIMS.olive_connect.security.JwtUtils;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -124,33 +127,56 @@ public class AuthService {
     }
 
     public JwtResponse login(LoginRequest request, HttpServletResponse response) {
-        // 1. Authenticate credentials via Spring Security AuthenticationManager
-        // Checks User.isEnabled() (emailVerified && status == ACTIVE) and User.isAccountNonLocked() (status != SUSPENDED)
+        // 1. Fetch user and verify password first so we don't leak account status to unauthenticated callers
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password."));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            throw new BadCredentialsException("Invalid email or password.");
+        }
+
+        // 2. Check specific lifecycle states to return clear feedback
+        if (!user.isEmailVerified()) {
+            throw new DisabledException("Please verify your email address before logging in.");
+        }
+
+        if (user.getStatus() == AccountStatus.PENDING_APPROVAL) {
+            throw new DisabledException("Your account is pending administrator approval.");
+        }
+
+        if (user.getStatus() == AccountStatus.REJECTED) {
+            String reason = (user.getRejectionReason() != null && !user.getRejectionReason().isBlank())
+                    ? user.getRejectionReason()
+                    : "No reason provided.";
+            throw new DisabledException("Your account registration was rejected. Reason: " + reason);
+        }
+
+        if (user.getStatus() == AccountStatus.SUSPENDED) {
+            throw new LockedException("Your account has been suspended by the administrator.");
+        }
+
+        // 3. Authenticate via Spring Security AuthenticationManager
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        // 2. Set authentication context
+        // 4. Set authentication context
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // 3. Generate short-lived Access Token (for client memory)
+        // 5. Generate short-lived Access Token (for client memory)
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         String accessToken = jwtUtils.generateJwtToken(userDetails);
 
-        // 4. Generate Refresh Token and store in MongoDB (revocable)
+        // 6. Generate Refresh Token and store in MongoDB (revocable)
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails);
 
-        // 5. Attach Refresh Token inside an HttpOnly cookie
+        // 7. Attach Refresh Token inside an HttpOnly cookie
         Cookie cookie = new Cookie("refreshToken", refreshToken.getToken());
         cookie.setHttpOnly(true);
         cookie.setSecure(false); // Set to true if using HTTPS in production
         cookie.setPath("/");
         cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days expiration
         response.addCookie(cookie);
-
-        // 6. Fetch user entity for response metadata
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
 
         return new JwtResponse(accessToken, user.getEmail(), user.getFullName(), user.getRole().name());
     }

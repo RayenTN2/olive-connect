@@ -1,6 +1,7 @@
 package ISIMS.olive_connect.exception;
 
 import ISIMS.olive_connect.dto.ApiResponse;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -8,6 +9,8 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.Arrays;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -40,15 +43,22 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse(false, errorMessage));
     }
 
-    // 4. Catches invalid Enum values like "Admin" instead of "ADMIN"
+    // 4. Catches missing body, malformed JSON, or invalid Enum values dynamically
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse> handleJsonParseException(HttpMessageNotReadableException ex) {
+        String message = "Request body is missing or contains malformed JSON.";
+
+        if (ex.getCause() instanceof InvalidFormatException invalidFormatEx && invalidFormatEx.getTargetType().isEnum()) {
+            Object[] enumConstants = invalidFormatEx.getTargetType().getEnumConstants();
+            message = "Invalid value '" + invalidFormatEx.getValue() + "'. Allowed values: " + Arrays.toString(enumConstants);
+        }
+
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(new ApiResponse(false, "Malformed JSON or invalid enum value. Allowed roles: FARMER, ADMIN, TEAM_LEADER, LOGISTICS_MANAGER, COLLECTION_MANAGER, MILL_MANAGER."));
+                .body(new ApiResponse(false, message));
     }
 
-    // 5. Catches authentication failures (bad credentials, disabled/unapproved/suspended account)
+    // 5. Catches authentication failures (bad credentials, disabled/unapproved/rejected/suspended account)
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse> handleAuthenticationException(AuthenticationException ex) {
         return ResponseEntity
