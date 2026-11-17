@@ -14,4 +14,9 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     // US-02: Fetch farmers who verified their email and are awaiting admin approval
     List<User> findByRoleAndEmailVerifiedTrueAndStatus(Role role, AccountStatus status);
+
+    // US-05: Filter cooperative users by role and/or status
+    List<User> findByRole(Role role);
+    List<User> findByStatus(AccountStatus status);
+    List<User> findByRoleAndStatus(Role role, AccountStatus status);
 }

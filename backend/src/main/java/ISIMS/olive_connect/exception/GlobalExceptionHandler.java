@@ -9,6 +9,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Arrays;
 
@@ -58,7 +59,22 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse(false, message));
     }
 
-    // 5. Catches authentication failures (bad credentials, disabled/unapproved/rejected/suspended account)
+    // 5. Catches invalid query parameter types or invalid Enum values in request params (e.g., ?role=INVALID)
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse> handleTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+        String message = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'.";
+
+        if (ex.getRequiredType() != null && ex.getRequiredType().isEnum()) {
+            Object[] enumConstants = ex.getRequiredType().getEnumConstants();
+            message = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'. Allowed values: " + Arrays.toString(enumConstants);
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ApiResponse(false, message));
+    }
+
+    // 6. Catches authentication failures (bad credentials, disabled/unapproved/rejected/suspended account)
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse> handleAuthenticationException(AuthenticationException ex) {
         return ResponseEntity
@@ -66,7 +82,7 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse(false, ex.getMessage()));
     }
 
-    // 6. Catches token refresh errors (expired, revoked, missing in db)
+    // 7. Catches token refresh errors (expired, revoked, missing in db)
     @ExceptionHandler(TokenRefreshException.class)
     public ResponseEntity<ApiResponse> handleTokenRefreshException(TokenRefreshException ex) {
         return ResponseEntity
@@ -74,7 +90,7 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse(false, ex.getMessage()));
     }
 
-    // 7. Catches invalid token errors
+    // 8. Catches invalid token errors
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<ApiResponse> handleInvalidTokenException(InvalidTokenException ex) {
         return ResponseEntity
