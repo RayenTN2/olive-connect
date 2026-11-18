@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -21,6 +22,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse> handleSecurityException(SecurityException ex) {
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN) // 403 with JSON body
+                .body(new ApiResponse(false, ex.getMessage()));
+    }
+
+    // 1b. Catches @PreAuthorize denials (otherwise the RuntimeException handler below would turn them into 400)
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse> handleAccessDeniedException(AccessDeniedException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
                 .body(new ApiResponse(false, ex.getMessage()));
     }
 
