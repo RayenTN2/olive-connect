@@ -2,6 +2,7 @@ package ISIMS.olive_connect.controller;
 
 import ISIMS.olive_connect.dto.OrchardResponse;
 import ISIMS.olive_connect.dto.RegisterOrchardRequest;
+import ISIMS.olive_connect.dto.UpdateOrchardRequest;
 import ISIMS.olive_connect.service.OrchardService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -38,5 +39,26 @@ public class OrchardController {
     public ResponseEntity<List<OrchardResponse>> getMyOrchards(Authentication authentication) {
         List<OrchardResponse> orchards = orchardService.getFarmerOrchards(authentication.getName());
         return ResponseEntity.ok(orchards);
+    }
+
+    // US-09: View details of a specific orchard owned by the logged-in farmer
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('FARMER')")
+    public ResponseEntity<OrchardResponse> getOrchardById(
+            @PathVariable String id,
+            Authentication authentication) {
+        OrchardResponse response = orchardService.getOrchardById(id, authentication.getName());
+        return ResponseEntity.ok(response);
+    }
+
+    // US-09: Update orchard characteristics and coordinates
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('FARMER')")
+    public ResponseEntity<OrchardResponse> updateOrchard(
+            @PathVariable String id,
+            @Valid @RequestBody UpdateOrchardRequest request,
+            Authentication authentication) {
+        OrchardResponse response = orchardService.updateOrchard(id, request, authentication.getName());
+        return ResponseEntity.ok(response);
     }
 }
