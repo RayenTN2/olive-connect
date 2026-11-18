@@ -3,6 +3,7 @@ package ISIMS.olive_connect.service;
 import ISIMS.olive_connect.dto.WorkerRequest;
 import ISIMS.olive_connect.dto.WorkerResponse;
 import ISIMS.olive_connect.entity.Worker;
+import ISIMS.olive_connect.exception.ResourceNotFoundException;
 import ISIMS.olive_connect.repository.WorkerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,7 +95,7 @@ class WorkerServiceTest {
     void updateWorker_unknownId_throws() {
         when(workerRepository.findById("missing")).thenReturn(Optional.empty());
 
-        RuntimeException ex = assertThrows(RuntimeException.class,
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
                 () -> workerService.updateWorker("missing", request));
         assertEquals("Worker not found with id: missing", ex.getMessage());
     }
@@ -123,6 +124,6 @@ class WorkerServiceTest {
     void updateWorkerStatus_unknownId_throws() {
         when(workerRepository.findById("missing")).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> workerService.updateWorkerStatus("missing", false));
+        assertThrows(ResourceNotFoundException.class, () -> workerService.updateWorkerStatus("missing", false));
     }
 }

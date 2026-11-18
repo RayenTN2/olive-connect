@@ -33,6 +33,14 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse(false, ex.getMessage()));
     }
 
+    // 1c. Catches lookups of an id that does not exist
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ApiResponse(false, ex.getMessage()));
+    }
+
     // 2. Catches duplicate email, invalid/expired verification codes
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse> handleRuntimeException(RuntimeException ex) {
