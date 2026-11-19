@@ -26,8 +26,12 @@ public class HarvestRequest {
     private Double estimatedQuantityKg;
     private String notes;
     private HarvestRequestStatus status = HarvestRequestStatus.PENDING;
+    private String reviewComment;
+    private String reviewedBy;
+    private Instant reviewedAt;
     private Instant createdAt;
     private Instant updatedAt;
+    
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -58,4 +62,12 @@ public class HarvestRequest {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public String getReviewComment() { return reviewComment; }
+    public void setReviewComment(String reviewComment) { this.reviewComment = reviewComment; }
+
+    public String getReviewedBy() { return reviewedBy; }
+    public void setReviewedBy(String reviewedBy) { this.reviewedBy = reviewedBy; }
+
+    public Instant getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
 }

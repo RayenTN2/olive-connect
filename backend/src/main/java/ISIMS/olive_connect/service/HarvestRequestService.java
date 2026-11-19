@@ -2,6 +2,7 @@ package ISIMS.olive_connect.service;
 
 import ISIMS.olive_connect.dto.CreateHarvestRequestDto;
 import ISIMS.olive_connect.dto.HarvestRequestResponse;
+import ISIMS.olive_connect.dto.ReviewHarvestRequestDto;
 import ISIMS.olive_connect.entity.HarvestRequest;
 import ISIMS.olive_connect.entity.HarvestRequestStatus;
 import ISIMS.olive_connect.entity.HarvestRequestType;
@@ -161,5 +162,44 @@ public class HarvestRequestService {
                         farmerMap.get(req.getFarmerId())
                 ))
                 .toList();
+    }
+
+    public HarvestRequestResponse reviewHarvestRequest(String requestId, ReviewHarvestRequestDto dto, String managerEmail) {
+        User reviewer = userRepository.findByEmail(managerEmail)
+                .orElseThrow(() -> new RuntimeException("Reviewer not found"));
+
+        HarvestRequest request = harvestRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Harvest request not found with id: " + requestId));
+
+        if (request.getStatus() != HarvestRequestStatus.PENDING) {
+            throw new IllegalStateException("Only PENDING harvest requests can be accepted or rejected. Current status: " + request.getStatus());
+        }
+
+        Instant now = Instant.now();
+        boolean accepted = Boolean.TRUE.equals(dto.getAccepted());
+
+        request.setStatus(accepted ? HarvestRequestStatus.APPROVED : HarvestRequestStatus.REJECTED);
+        request.setReviewComment(dto.getComment() != null && !dto.getComment().isBlank() ? dto.getComment().trim() : null);
+        request.setReviewedBy(reviewer.getId());
+        request.setReviewedAt(now);
+        request.setUpdatedAt(now);
+
+        HarvestRequest savedRequest = harvestRequestRepository.save(request);
+
+        orchardRepository.findById(request.getOrchardId()).ifPresent(orchard -> {
+            if (!accepted) {
+                boolean hasOtherActive = harvestRequestRepository.existsByOrchardIdAndStatusIn(
+                        orchard.getId(), ACTIVE_STATUSES);
+                if (!hasOtherActive) {
+                    orchard.setHarvestStatus(OrchardHarvestStatus.IDLE);
+                    orchard.setUpdatedAt(now);
+                    orchardRepository.save(orchard);
+                }
+            }
+        });
+
+        Orchard orchard = orchardRepository.findById(savedRequest.getOrchardId()).orElse(null);
+        User farmer = userRepository.findById(savedRequest.getFarmerId()).orElse(null);
+        return HarvestRequestResponse.fromEntity(savedRequest, orchard, farmer);
     }
 }
