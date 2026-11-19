@@ -63,7 +63,8 @@ public class WorkerService {
         return WorkerResponse.fromEntity(workerRepository.save(worker));
     }
 
-    private Worker findWorker(String workerId) {
+    // Shared with WorkerAvailabilityService: unknown id → 404
+    public Worker findWorker(String workerId) {
         return workerRepository.findById(workerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Worker not found with id: " + workerId));
     }
