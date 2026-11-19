@@ -12,7 +12,7 @@ import ISIMS.olive_connect.repository.HarvestRequestRepository;
 import ISIMS.olive_connect.repository.OrchardRepository;
 import ISIMS.olive_connect.repository.UserRepository;
 import org.springframework.stereotype.Service;
-
+import ISIMS.olive_connect.entity.Role;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -104,4 +104,21 @@ public class HarvestRequestService {
                 .map(req -> HarvestRequestResponse.fromEntity(req, orchardMap.get(req.getOrchardId())))
                 .toList();
     }
+
+    public HarvestRequestResponse getHarvestRequestById(String requestId, String userEmail) {
+    User user = userRepository.findByEmail(userEmail)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    HarvestRequest request = harvestRequestRepository.findById(requestId)
+            .orElseThrow(() -> new RuntimeException("Harvest request not found with id: " + requestId));
+
+    if (user.getRole() == Role.FARMER && !request.getFarmerId().equals(user.getId())) {
+        throw new SecurityException("Access denied: You cannot consult another farmer's harvest request.");
+    }
+
+    Orchard orchard = orchardRepository.findById(request.getOrchardId()).orElse(null);
+    return HarvestRequestResponse.fromEntity(request, orchard);
+}
+
+    
 }
