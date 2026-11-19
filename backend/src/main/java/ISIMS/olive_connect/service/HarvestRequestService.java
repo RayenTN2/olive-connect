@@ -6,6 +6,7 @@ import ISIMS.olive_connect.dto.ReviewHarvestRequestDto;
 import ISIMS.olive_connect.entity.HarvestRequest;
 import ISIMS.olive_connect.entity.HarvestRequestStatus;
 import ISIMS.olive_connect.entity.HarvestRequestType;
+import ISIMS.olive_connect.entity.MaturityLevel;
 import ISIMS.olive_connect.entity.Orchard;
 import ISIMS.olive_connect.entity.OrchardHarvestStatus;
 import ISIMS.olive_connect.entity.Role;
@@ -16,6 +17,7 @@ import ISIMS.olive_connect.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -95,7 +97,9 @@ public class HarvestRequestService {
 
     public List<HarvestRequestResponse> getHarvestRequestsForManager(HarvestRequestStatus status,
                                                                    HarvestRequestType requestType,
-                                                                   String orchardId) {
+                                                                   MaturityLevel maturity,
+                                                                   String orchardId,
+                                                                   String sortBy) {
         List<HarvestRequest> requests;
         if (requestType != null && status != null) {
             requests = harvestRequestRepository.findByRequestTypeAndStatusOrderByCreatedAtDesc(requestType, status);
@@ -107,13 +111,13 @@ public class HarvestRequestService {
             requests = harvestRequestRepository.findAllByOrderByCreatedAtDesc();
         }
 
-        if (orchardId != null && !orchardId.isBlank()) {
-            requests = requests.stream()
-                    .filter(req -> orchardId.equals(req.getOrchardId()))
-                    .toList();
-        }
+        List<HarvestRequestResponse> responses = mapWithDetails(requests).stream()
+                .filter(res -> orchardId == null || orchardId.isBlank() || orchardId.equals(res.getOrchardId()))
+                .filter(res -> maturity == null || maturity == res.getOrchardMaturity())
+                .peek(this::enrichPriorityMetadata)
+                .toList();
 
-        return mapWithDetails(requests);
+        return sortResponses(responses, sortBy);
     }
 
     public HarvestRequestResponse getHarvestRequestById(String requestId, String userEmail) {
@@ -133,7 +137,9 @@ public class HarvestRequestService {
 
         Orchard orchard = orchardRepository.findById(request.getOrchardId()).orElse(null);
         User farmer = userRepository.findById(request.getFarmerId()).orElse(null);
-        return HarvestRequestResponse.fromEntity(request, orchard, farmer);
+        HarvestRequestResponse response = HarvestRequestResponse.fromEntity(request, orchard, farmer);
+        enrichPriorityMetadata(response);
+        return response;
     }
 
     private List<HarvestRequestResponse> mapWithDetails(List<HarvestRequest> requests) {
@@ -162,6 +168,62 @@ public class HarvestRequestService {
                         farmerMap.get(req.getFarmerId())
                 ))
                 .toList();
+    }
+
+    private void enrichPriorityMetadata(HarvestRequestResponse res) {
+        int urgencyWeight = res.getRequestType() == HarvestRequestType.URGENT ? 50 : 10;
+        int maturityWeight = maturityRank(res.getOrchardMaturity());
+        int total = urgencyWeight + maturityWeight;
+
+        res.setPriorityScore(total);
+        if (res.getOrchardMaturity() == null) {
+            res.setPriorityTier(res.getRequestType() == HarvestRequestType.URGENT
+                    ? "URGENT_MISSING_MATURITY"
+                    : "MISSING_MATURITY");
+        } else if (total >= 80) {
+            res.setPriorityTier("CRITICAL");
+        } else if (total >= 55) {
+            res.setPriorityTier("HIGH");
+        } else {
+            res.setPriorityTier("STANDARD");
+        }
+    }
+
+    private int maturityRank(MaturityLevel level) {
+        if (level == null) {
+            return 0;
+        }
+        return switch (level) {
+            case OVERRIPE -> 40;
+            case OPTIMAL -> 35;
+            case VERAISON -> 20;
+            case GREEN -> 10;
+        };
+    }
+
+    private List<HarvestRequestResponse> sortResponses(List<HarvestRequestResponse> items, String sortBy) {
+        String mode = sortBy == null ? "NEWEST" : sortBy.trim().toUpperCase();
+        return switch (mode) {
+            case "PRIORITY" -> items.stream()
+                    .sorted(Comparator
+                            .comparing((HarvestRequestResponse r) -> r.getPriorityScore() != null ? r.getPriorityScore() : 0)
+                            .reversed()
+                            .thenComparing(HarvestRequestResponse::getSubmittedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                    .toList();
+            case "URGENCY" -> items.stream()
+                    .sorted(Comparator
+                            .comparing((HarvestRequestResponse r) -> r.getRequestType() == HarvestRequestType.URGENT ? 1 : 0)
+                            .reversed()
+                            .thenComparing(HarvestRequestResponse::getSubmittedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                    .toList();
+            case "MATURITY" -> items.stream()
+                    .sorted(Comparator
+                            .comparing((HarvestRequestResponse r) -> maturityRank(r.getOrchardMaturity()))
+                            .reversed()
+                            .thenComparing(HarvestRequestResponse::getSubmittedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                    .toList();
+            default -> items;
+        };
     }
 
     public HarvestRequestResponse reviewHarvestRequest(String requestId, ReviewHarvestRequestDto dto, String managerEmail) {
@@ -200,6 +262,8 @@ public class HarvestRequestService {
 
         Orchard orchard = orchardRepository.findById(savedRequest.getOrchardId()).orElse(null);
         User farmer = userRepository.findById(savedRequest.getFarmerId()).orElse(null);
-        return HarvestRequestResponse.fromEntity(savedRequest, orchard, farmer);
+        HarvestRequestResponse response = HarvestRequestResponse.fromEntity(savedRequest, orchard, farmer);
+        enrichPriorityMetadata(response);
+        return response;
     }
 }
