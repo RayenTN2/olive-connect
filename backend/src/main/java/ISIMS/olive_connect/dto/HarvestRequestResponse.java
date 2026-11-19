@@ -35,6 +35,8 @@ public class HarvestRequestResponse {
     private String reviewedBy;
     private Instant reviewedAt;
     private boolean tourEligible;
+    private Integer priorityScore;
+    private String priorityTier;
 
     public static HarvestRequestResponse fromEntity(HarvestRequest request, Orchard orchard) {
         return fromEntity(request, orchard, null);
@@ -137,4 +139,9 @@ public class HarvestRequestResponse {
 
     public boolean isTourEligible() { return tourEligible; }
     public void setTourEligible(boolean tourEligible) { this.tourEligible = tourEligible; }
+    public Integer getPriorityScore() { return priorityScore; }
+    public void setPriorityScore(Integer priorityScore) { this.priorityScore = priorityScore; }
+
+    public String getPriorityTier() { return priorityTier; }
+    public void setPriorityTier(String priorityTier) { this.priorityTier = priorityTier; }
 }

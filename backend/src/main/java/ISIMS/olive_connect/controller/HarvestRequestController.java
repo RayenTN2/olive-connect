@@ -6,6 +6,8 @@ import ISIMS.olive_connect.dto.ReviewHarvestRequestDto;
 import ISIMS.olive_connect.entity.HarvestRequestStatus;
 import ISIMS.olive_connect.entity.HarvestRequestType;
 import ISIMS.olive_connect.service.HarvestRequestService;
+import ISIMS.olive_connect.entity.MaturityLevel;
+
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,9 +47,11 @@ public class HarvestRequestController {
     public ResponseEntity<List<HarvestRequestResponse>> getHarvestRequestsForManager(
             @RequestParam(required = false) HarvestRequestStatus status,
             @RequestParam(required = false) HarvestRequestType requestType,
-            @RequestParam(required = false) String orchardId) {
+            @RequestParam(required = false) MaturityLevel maturity,
+            @RequestParam(required = false) String orchardId,
+            @RequestParam(required = false, defaultValue = "NEWEST") String sortBy) {
         return ResponseEntity.ok(
-                harvestRequestService.getHarvestRequestsForManager(status, requestType, orchardId)
+                harvestRequestService.getHarvestRequestsForManager(status, requestType, maturity, orchardId, sortBy)
         );
     }
 
