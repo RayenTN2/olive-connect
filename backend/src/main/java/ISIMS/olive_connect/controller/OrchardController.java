@@ -1,8 +1,11 @@
 package ISIMS.olive_connect.controller;
 
+import ISIMS.olive_connect.dto.OrchardGeoJsonCollection;
 import ISIMS.olive_connect.dto.OrchardResponse;
 import ISIMS.olive_connect.dto.RegisterOrchardRequest;
 import ISIMS.olive_connect.dto.UpdateOrchardRequest;
+import ISIMS.olive_connect.entity.MaturityLevel;
+import ISIMS.olive_connect.entity.OrchardHarvestStatus;
 import ISIMS.olive_connect.service.OrchardService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -60,5 +63,26 @@ public class OrchardController {
             Authentication authentication) {
         OrchardResponse response = orchardService.updateOrchard(id, request, authentication.getName());
         return ResponseEntity.ok(response);
+    }
+
+    // US-10 (Public Visitor): View public orchard map without authentication
+    @GetMapping("/map/public")
+    public ResponseEntity<OrchardGeoJsonCollection> getPublicOrchardsForMap(
+            @RequestParam(required = false) MaturityLevel maturity,
+            @RequestParam(required = false) OrchardHarvestStatus harvestStatus) {
+        OrchardGeoJsonCollection geoJson = orchardService.getPublicOrchardsMapGeoJson(maturity, harvestStatus);
+        return ResponseEntity.ok(geoJson);
+    }
+
+    // US-10 (Authenticated): View orchards on an interactive map (role-scoped)
+    @GetMapping("/map")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<OrchardGeoJsonCollection> getOrchardsForMap(
+            @RequestParam(required = false) MaturityLevel maturity,
+            @RequestParam(required = false) OrchardHarvestStatus harvestStatus,
+            Authentication authentication) {
+        OrchardGeoJsonCollection geoJson = orchardService.getOrchardsMapGeoJson(
+                maturity, harvestStatus, authentication.getName());
+        return ResponseEntity.ok(geoJson);
     }
 }
