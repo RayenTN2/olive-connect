@@ -3,6 +3,7 @@ package ISIMS.olive_connect.security;
 import ISIMS.olive_connect.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -27,8 +28,8 @@ public class SecurityConfig {
     private final JwtUtils jwtUtils;
     private final AuthEntryPointJwt unauthorizedHandler;
 
-    public SecurityConfig(UserRepository userRepository, 
-                          JwtUtils jwtUtils, 
+    public SecurityConfig(UserRepository userRepository,
+                          JwtUtils jwtUtils,
                           AuthEntryPointJwt unauthorizedHandler) {
         this.userRepository = userRepository;
         this.jwtUtils = jwtUtils;
@@ -64,7 +65,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   AuthenticationProvider authenticationProvider) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
@@ -72,6 +74,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/auth/**", "/error").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/orchards/map/public").permitAll()
 
                 // Role-Based URL Patterns
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -83,7 +86,8 @@ public class SecurityConfig {
 
                 // All other requests require authentication
                 .anyRequest().authenticated()
-            );
+            )
+            .authenticationProvider(authenticationProvider);
 
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 

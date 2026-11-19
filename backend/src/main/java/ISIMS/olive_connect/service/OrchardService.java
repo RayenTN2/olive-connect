@@ -1,10 +1,13 @@
 package ISIMS.olive_connect.service;
 
+import ISIMS.olive_connect.dto.OrchardGeoJsonCollection;
 import ISIMS.olive_connect.dto.OrchardResponse;
 import ISIMS.olive_connect.dto.RegisterOrchardRequest;
 import ISIMS.olive_connect.dto.UpdateOrchardRequest;
+import ISIMS.olive_connect.entity.MaturityLevel;
 import ISIMS.olive_connect.entity.Orchard;
 import ISIMS.olive_connect.entity.OrchardHarvestStatus;
+import ISIMS.olive_connect.entity.Role;
 import ISIMS.olive_connect.entity.User;
 import ISIMS.olive_connect.repository.OrchardRepository;
 import ISIMS.olive_connect.repository.UserRepository;
@@ -97,5 +100,66 @@ public class OrchardService {
 
         Orchard updatedOrchard = orchardRepository.save(orchard);
         return OrchardResponse.fromEntity(updatedOrchard);
+    }
+
+    // US-10 (Public Visitor): Interactive map GeoJSON without private farmer identifiers
+    public OrchardGeoJsonCollection getPublicOrchardsMapGeoJson(
+            MaturityLevel maturity,
+            OrchardHarvestStatus harvestStatus) {
+
+        List<Orchard> orchards = filterAllOrchards(maturity, harvestStatus);
+
+        List<OrchardGeoJsonCollection.OrchardFeature> features = orchards.stream()
+                .filter(o -> o.getLocation() != null)
+                .map(o -> OrchardGeoJsonCollection.OrchardFeature.fromEntity(o, true))
+                .toList();
+
+        return new OrchardGeoJsonCollection(features);
+    }
+
+    // US-10 (Authenticated User): Role-scoped interactive map GeoJSON
+    public OrchardGeoJsonCollection getOrchardsMapGeoJson(
+            MaturityLevel maturity,
+            OrchardHarvestStatus harvestStatus,
+            String userEmail) {
+
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<Orchard> orchards;
+
+        if (currentUser.getRole() == Role.FARMER) {
+            String farmerId = currentUser.getId();
+            if (maturity != null && harvestStatus != null) {
+                orchards = orchardRepository.findByFarmerIdAndCurrentMaturityAndHarvestStatus(farmerId, maturity, harvestStatus);
+            } else if (maturity != null) {
+                orchards = orchardRepository.findByFarmerIdAndCurrentMaturity(farmerId, maturity);
+            } else if (harvestStatus != null) {
+                orchards = orchardRepository.findByFarmerIdAndHarvestStatus(farmerId, harvestStatus);
+            } else {
+                orchards = orchardRepository.findByFarmerId(farmerId);
+            }
+        } else {
+            orchards = filterAllOrchards(maturity, harvestStatus);
+        }
+
+        List<OrchardGeoJsonCollection.OrchardFeature> features = orchards.stream()
+                .filter(o -> o.getLocation() != null)
+                .map(o -> OrchardGeoJsonCollection.OrchardFeature.fromEntity(o, false))
+                .toList();
+
+        return new OrchardGeoJsonCollection(features);
+    }
+
+    private List<Orchard> filterAllOrchards(MaturityLevel maturity, OrchardHarvestStatus harvestStatus) {
+        if (maturity != null && harvestStatus != null) {
+            return orchardRepository.findByCurrentMaturityAndHarvestStatus(maturity, harvestStatus);
+        } else if (maturity != null) {
+            return orchardRepository.findByCurrentMaturity(maturity);
+        } else if (harvestStatus != null) {
+            return orchardRepository.findByHarvestStatus(harvestStatus);
+        } else {
+            return orchardRepository.findAll();
+        }
     }
 }
