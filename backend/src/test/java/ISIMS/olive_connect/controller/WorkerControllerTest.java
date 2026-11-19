@@ -1,6 +1,7 @@
 package ISIMS.olive_connect.controller;
 
 import ISIMS.olive_connect.dto.WorkerResponse;
+import ISIMS.olive_connect.exception.ResourceNotFoundException;
 import ISIMS.olive_connect.repository.UserRepository;
 import ISIMS.olive_connect.security.AuthEntryPointJwt;
 import ISIMS.olive_connect.security.JwtUtils;
@@ -147,13 +148,13 @@ class WorkerControllerTest {
 
     @Test
     @WithMockUser(roles = "LOGISTICS_MANAGER")
-    void unknownWorker_isBadRequestWithMessage() throws Exception {
+    void unknownWorker_isNotFound() throws Exception {
         when(workerService.updateWorkerStatus("missing", false))
-                .thenThrow(new RuntimeException("Worker not found with id: missing"));
+                .thenThrow(new ResourceNotFoundException("Worker not found with id: missing"));
 
         mockMvc.perform(patch(URL + "/missing/status").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"active\":false}"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Worker not found with id: missing"));
     }
 }

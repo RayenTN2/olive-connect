@@ -3,6 +3,7 @@ package ISIMS.olive_connect.service;
 import ISIMS.olive_connect.dto.WorkerRequest;
 import ISIMS.olive_connect.dto.WorkerResponse;
 import ISIMS.olive_connect.entity.Worker;
+import ISIMS.olive_connect.exception.ResourceNotFoundException;
 import ISIMS.olive_connect.repository.WorkerRepository;
 import org.springframework.stereotype.Service;
 
@@ -62,8 +63,9 @@ public class WorkerService {
         return WorkerResponse.fromEntity(workerRepository.save(worker));
     }
 
-    private Worker findWorker(String workerId) {
+    // Shared with WorkerAvailabilityService: unknown id → 404
+    public Worker findWorker(String workerId) {
         return workerRepository.findById(workerId)
-                .orElseThrow(() -> new RuntimeException("Worker not found with id: " + workerId));
+                .orElseThrow(() -> new ResourceNotFoundException("Worker not found with id: " + workerId));
     }
 }
