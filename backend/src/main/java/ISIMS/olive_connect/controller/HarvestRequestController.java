@@ -36,4 +36,12 @@ public class HarvestRequestController {
     public ResponseEntity<List<HarvestRequestResponse>> getMyHarvestRequests(Authentication authentication) {
         return ResponseEntity.ok(harvestRequestService.getMyHarvestRequests(authentication.getName()));
     }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<HarvestRequestResponse> getHarvestRequestById(
+        @PathVariable String id,
+        Authentication authentication) {
+        return ResponseEntity.ok(harvestRequestService.getHarvestRequestById(id, authentication.getName()));
+    }
 }
