@@ -5,6 +5,7 @@ import ISIMS.olive_connect.entity.HarvestRequestStatus;
 import ISIMS.olive_connect.entity.HarvestRequestType;
 import ISIMS.olive_connect.entity.MaturityLevel;
 import ISIMS.olive_connect.entity.Orchard;
+import ISIMS.olive_connect.entity.User;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -17,7 +18,12 @@ public class HarvestRequestResponse {
     private MaturityLevel orchardMaturity;
     private Double latitude;
     private Double longitude;
+
     private String farmerId;
+    private String farmerName;
+    private String farmerPhone;
+    private String farmerEmail;
+
     private HarvestRequestType requestType;
     private LocalDate preferredDate;
     private Double estimatedQuantityKg;
@@ -27,6 +33,10 @@ public class HarvestRequestResponse {
     private Instant updatedAt;
 
     public static HarvestRequestResponse fromEntity(HarvestRequest request, Orchard orchard) {
+        return fromEntity(request, orchard, null);
+    }
+
+    public static HarvestRequestResponse fromEntity(HarvestRequest request, Orchard orchard, User farmer) {
         HarvestRequestResponse res = new HarvestRequestResponse();
         res.setId(request.getId());
         res.setOrchardId(request.getOrchardId());
@@ -47,6 +57,13 @@ public class HarvestRequestResponse {
                 res.setLongitude(orchard.getLocation().getX());
             }
         }
+
+        if (farmer != null) {
+            res.setFarmerName(farmer.getFullName());
+            res.setFarmerPhone(farmer.getPhone());
+            res.setFarmerEmail(farmer.getEmail());
+        }
+
         return res;
     }
 
@@ -70,6 +87,15 @@ public class HarvestRequestResponse {
 
     public String getFarmerId() { return farmerId; }
     public void setFarmerId(String farmerId) { this.farmerId = farmerId; }
+
+    public String getFarmerName() { return farmerName; }
+    public void setFarmerName(String farmerName) { this.farmerName = farmerName; }
+
+    public String getFarmerPhone() { return farmerPhone; }
+    public void setFarmerPhone(String farmerPhone) { this.farmerPhone = farmerPhone; }
+
+    public String getFarmerEmail() { return farmerEmail; }
+    public void setFarmerEmail(String farmerEmail) { this.farmerEmail = farmerEmail; }
 
     public HarvestRequestType getRequestType() { return requestType; }
     public void setRequestType(HarvestRequestType requestType) { this.requestType = requestType; }

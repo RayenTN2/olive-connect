@@ -7,12 +7,13 @@ import ISIMS.olive_connect.entity.HarvestRequestStatus;
 import ISIMS.olive_connect.entity.HarvestRequestType;
 import ISIMS.olive_connect.entity.Orchard;
 import ISIMS.olive_connect.entity.OrchardHarvestStatus;
+import ISIMS.olive_connect.entity.Role;
 import ISIMS.olive_connect.entity.User;
 import ISIMS.olive_connect.repository.HarvestRequestRepository;
 import ISIMS.olive_connect.repository.OrchardRepository;
 import ISIMS.olive_connect.repository.UserRepository;
 import org.springframework.stereotype.Service;
-import ISIMS.olive_connect.entity.Role;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +81,7 @@ public class HarvestRequestService {
         orchard.setUpdatedAt(now);
         orchardRepository.save(orchard);
 
-        return HarvestRequestResponse.fromEntity(savedRequest, orchard);
+        return HarvestRequestResponse.fromEntity(savedRequest, orchard, farmer);
     }
 
     public List<HarvestRequestResponse> getMyHarvestRequests(String farmerEmail) {
@@ -88,37 +89,77 @@ public class HarvestRequestService {
                 .orElseThrow(() -> new RuntimeException("Farmer not found"));
 
         List<HarvestRequest> requests = harvestRequestRepository.findByFarmerIdOrderByCreatedAtDesc(farmer.getId());
-        return mapWithOrchards(requests);
+        return mapWithDetails(requests);
     }
 
-    private List<HarvestRequestResponse> mapWithOrchards(List<HarvestRequest> requests) {
+    public List<HarvestRequestResponse> getHarvestRequestsForManager(HarvestRequestStatus status,
+                                                                   HarvestRequestType requestType,
+                                                                   String orchardId) {
+        List<HarvestRequest> requests;
+        if (requestType != null && status != null) {
+            requests = harvestRequestRepository.findByRequestTypeAndStatusOrderByCreatedAtDesc(requestType, status);
+        } else if (status != null) {
+            requests = harvestRequestRepository.findByStatusOrderByCreatedAtDesc(status);
+        } else if (requestType != null) {
+            requests = harvestRequestRepository.findByRequestTypeOrderByCreatedAtDesc(requestType);
+        } else {
+            requests = harvestRequestRepository.findAllByOrderByCreatedAtDesc();
+        }
+
+        if (orchardId != null && !orchardId.isBlank()) {
+            requests = requests.stream()
+                    .filter(req -> orchardId.equals(req.getOrchardId()))
+                    .toList();
+        }
+
+        return mapWithDetails(requests);
+    }
+
+    public HarvestRequestResponse getHarvestRequestById(String requestId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        HarvestRequest request = harvestRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Harvest request not found with id: " + requestId));
+
+        if (user.getRole() == Role.FARMER) {
+            if (!request.getFarmerId().equals(user.getId())) {
+                throw new SecurityException("Access denied: You cannot consult another farmer's harvest request.");
+            }
+        } else if (user.getRole() != Role.COLLECTION_MANAGER && user.getRole() != Role.ADMIN) {
+            throw new SecurityException("Access denied: Insufficient privileges to consult this harvest request.");
+        }
+
+        Orchard orchard = orchardRepository.findById(request.getOrchardId()).orElse(null);
+        User farmer = userRepository.findById(request.getFarmerId()).orElse(null);
+        return HarvestRequestResponse.fromEntity(request, orchard, farmer);
+    }
+
+    private List<HarvestRequestResponse> mapWithDetails(List<HarvestRequest> requests) {
         Set<String> orchardIds = requests.stream()
                 .map(HarvestRequest::getOrchardId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toSet());
+
+        Set<String> farmerIds = requests.stream()
+                .map(HarvestRequest::getFarmerId)
+                .filter(id -> id != null && !id.isBlank())
                 .collect(Collectors.toSet());
 
         Map<String, Orchard> orchardMap = orchardRepository.findAllById(orchardIds)
                 .stream()
                 .collect(Collectors.toMap(Orchard::getId, Function.identity()));
 
+        Map<String, User> farmerMap = userRepository.findAllById(farmerIds)
+                .stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
         return requests.stream()
-                .map(req -> HarvestRequestResponse.fromEntity(req, orchardMap.get(req.getOrchardId())))
+                .map(req -> HarvestRequestResponse.fromEntity(
+                        req,
+                        orchardMap.get(req.getOrchardId()),
+                        farmerMap.get(req.getFarmerId())
+                ))
                 .toList();
     }
-
-    public HarvestRequestResponse getHarvestRequestById(String requestId, String userEmail) {
-    User user = userRepository.findByEmail(userEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-
-    HarvestRequest request = harvestRequestRepository.findById(requestId)
-            .orElseThrow(() -> new RuntimeException("Harvest request not found with id: " + requestId));
-
-    if (user.getRole() == Role.FARMER && !request.getFarmerId().equals(user.getId())) {
-        throw new SecurityException("Access denied: You cannot consult another farmer's harvest request.");
-    }
-
-    Orchard orchard = orchardRepository.findById(request.getOrchardId()).orElse(null);
-    return HarvestRequestResponse.fromEntity(request, orchard);
-}
-
-    
 }
