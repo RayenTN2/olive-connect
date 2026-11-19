@@ -31,6 +31,10 @@ public class HarvestRequestResponse {
     private HarvestRequestStatus status;
     private Instant submittedAt;
     private Instant updatedAt;
+    private String reviewComment;
+    private String reviewedBy;
+    private Instant reviewedAt;
+    private boolean tourEligible;
 
     public static HarvestRequestResponse fromEntity(HarvestRequest request, Orchard orchard) {
         return fromEntity(request, orchard, null);
@@ -48,6 +52,10 @@ public class HarvestRequestResponse {
         res.setStatus(request.getStatus());
         res.setSubmittedAt(request.getCreatedAt());
         res.setUpdatedAt(request.getUpdatedAt());
+        res.setReviewComment(request.getReviewComment());
+        res.setReviewedBy(request.getReviewedBy());
+        res.setReviewedAt(request.getReviewedAt());
+        res.setTourEligible(request.getStatus() == HarvestRequestStatus.APPROVED);
 
         if (orchard != null) {
             res.setOrchardName(orchard.getName());
@@ -117,4 +125,16 @@ public class HarvestRequestResponse {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getReviewComment() { return reviewComment; }
+    public void setReviewComment(String reviewComment) { this.reviewComment = reviewComment; }
+
+    public String getReviewedBy() { return reviewedBy; }
+    public void setReviewedBy(String reviewedBy) { this.reviewedBy = reviewedBy; }
+
+    public Instant getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
+
+    public boolean isTourEligible() { return tourEligible; }
+    public void setTourEligible(boolean tourEligible) { this.tourEligible = tourEligible; }
 }
