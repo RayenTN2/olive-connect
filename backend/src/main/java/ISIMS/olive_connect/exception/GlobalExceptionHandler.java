@@ -4,6 +4,7 @@ import ISIMS.olive_connect.dto.ApiResponse;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -39,6 +40,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(new ApiResponse(false, ex.getMessage()));
+    }
+
+    // 1d. A unique index rejected a write (two identical requests at the same time).
+    // Without this, the RuntimeException handler below would expose MongoDB's raw E11000 message.
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<ApiResponse> handleDuplicateKeyException(DuplicateKeyException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ApiResponse(false, "This value is already in use."));
     }
 
     // 2. Catches duplicate email, invalid/expired verification codes

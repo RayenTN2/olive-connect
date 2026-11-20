@@ -133,6 +133,22 @@ class EquipmentServiceTest {
     }
 
     @Test
+    void createEquipment_blankOptionalFields_areTreatedAsMissing() {
+        EquipmentRequest request = bin("BN-02", 500);
+        request.setRegistrationNumber("");   // what an empty form field sends
+        request.setBrand("  ");
+        request.setModel("");
+        request.setSerialNumber("");
+
+        EquipmentResponse response = service.createEquipment(request);
+
+        assertNull(response.getRegistrationNumber());
+        assertNull(response.getBrand());
+        assertNull(response.getModel());
+        assertNull(response.getSerialNumber());
+    }
+
+    @Test
     void createEquipment_duplicateReference_isRejected() {
         when(equipmentRepository.existsByReference("TR-01")).thenReturn(true);
 
