@@ -7,6 +7,7 @@ import ISIMS.olive_connect.entity.EquipmentType;
 import ISIMS.olive_connect.exception.ResourceNotFoundException;
 import ISIMS.olive_connect.repository.EquipmentRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
@@ -96,7 +97,7 @@ public class EquipmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Equipment not found with id: " + equipmentId));
     }
 
-    // Type must exist; capacityKg is BIN-only and required; registrationNumber is TRACTOR-only
+    // Type must exist; capacityKg is BIN-only and required; registrationNumber is TRACTOR-only (blank = not given)
     private void validateTypeAndSpecs(EquipmentRequest request) {
         equipmentTypeService.requireKnownType(request.getType());
         boolean isBin = EquipmentType.BIN.name().equals(request.getType());
@@ -108,19 +109,24 @@ public class EquipmentService {
         if (!isBin && request.getCapacityKg() != null) {
             throw new RuntimeException("Capacity is only allowed for bins.");
         }
-        if (!isTractor && request.getRegistrationNumber() != null) {
+        if (!isTractor && StringUtils.hasText(request.getRegistrationNumber())) {
             throw new RuntimeException("Registration number is only allowed for tractors.");
         }
+    }
+
+    // Forms send empty fields as "": store them as missing
+    private static String blankToNull(String value) {
+        return StringUtils.hasText(value) ? value : null;
     }
 
     private void applyRequest(Equipment equipment, EquipmentRequest request) {
         equipment.setName(request.getName());
         equipment.setReference(request.getReference());
         equipment.setType(request.getType());
-        equipment.setBrand(request.getBrand());
-        equipment.setModel(request.getModel());
-        equipment.setSerialNumber(request.getSerialNumber());
-        equipment.setRegistrationNumber(request.getRegistrationNumber());
+        equipment.setBrand(blankToNull(request.getBrand()));
+        equipment.setModel(blankToNull(request.getModel()));
+        equipment.setSerialNumber(blankToNull(request.getSerialNumber()));
+        equipment.setRegistrationNumber(blankToNull(request.getRegistrationNumber()));
         equipment.setCapacityKg(request.getCapacityKg());
     }
 }

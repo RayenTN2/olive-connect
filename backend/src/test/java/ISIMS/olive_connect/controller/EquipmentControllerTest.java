@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -141,6 +142,17 @@ class EquipmentControllerTest {
         mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Reference is already in use: TR-01"));
+    }
+
+    @Test
+    @WithMockUser(roles = "LOGISTICS_MANAGER")
+    void create_rejectedByUniqueIndex_isBadRequestWithoutMongoDetails() throws Exception {
+        when(equipmentService.createEquipment(any()))
+                .thenThrow(new DuplicateKeyException("E11000 duplicate key error collection: oliveconnect.equipment"));
+
+        mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("This value is already in use."));
     }
 
     // --- list / consult ---
