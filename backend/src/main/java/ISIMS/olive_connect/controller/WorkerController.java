@@ -14,7 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/logistics/workers")
-@PreAuthorize("hasRole('LOGISTICS_MANAGER')")
+@PreAuthorize("hasAnyRole('COLLECTION_MANAGER', 'LOGISTICS_MANAGER', 'ADMIN')")
 public class WorkerController {
 
     private final WorkerService workerService;
@@ -25,6 +25,7 @@ public class WorkerController {
 
     // US-22: Register a seasonal worker
     @PostMapping
+    @PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
     public ResponseEntity<WorkerResponse> createWorker(@Valid @RequestBody WorkerRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(workerService.createWorker(request));
     }
@@ -37,6 +38,7 @@ public class WorkerController {
 
     // US-22: Update worker information
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
     public ResponseEntity<WorkerResponse> updateWorker(
             @PathVariable String id,
             @Valid @RequestBody WorkerRequest request) {
@@ -45,6 +47,7 @@ public class WorkerController {
 
     // US-22: Activate or deactivate a worker
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
     public ResponseEntity<WorkerResponse> updateWorkerStatus(
             @PathVariable String id,
             @Valid @RequestBody UpdateWorkerStatusRequest request) {
