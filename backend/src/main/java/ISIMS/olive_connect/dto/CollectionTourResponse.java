@@ -21,6 +21,9 @@ public class CollectionTourResponse {
     private List<OilMillDropOff> dropOffs;
     private List<String> assignedWorkerIds;
     private List<String> assignedEquipmentIds;
+    // Details of the assigned resources (filled by CollectionTourService)
+    private List<WorkerResponse> assignedWorkers;
+    private List<EquipmentResponse> assignedEquipment;
     private double totalQuantityKg;
     private double totalAllocatedQuantityKg;
     private double totalDistanceKm;
@@ -63,6 +66,12 @@ public class CollectionTourResponse {
         res.setCancellationReason(tour.getCancellationReason());
         return res;
     }
+
+    public List<WorkerResponse> getAssignedWorkers() { return assignedWorkers; }
+    public void setAssignedWorkers(List<WorkerResponse> assignedWorkers) { this.assignedWorkers = assignedWorkers; }
+
+    public List<EquipmentResponse> getAssignedEquipment() { return assignedEquipment; }
+    public void setAssignedEquipment(List<EquipmentResponse> assignedEquipment) { this.assignedEquipment = assignedEquipment; }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }

@@ -26,9 +26,11 @@ import ISIMS.olive_connect.entity.User;
 import ISIMS.olive_connect.entity.Worker;
 import ISIMS.olive_connect.exception.ResourceNotFoundException;
 import ISIMS.olive_connect.repository.CollectionTourRepository;
+import ISIMS.olive_connect.repository.EquipmentRepository;
 import ISIMS.olive_connect.repository.HarvestRequestRepository;
 import ISIMS.olive_connect.repository.OrchardRepository;
 import ISIMS.olive_connect.repository.UserRepository;
+import ISIMS.olive_connect.repository.WorkerRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -61,12 +63,6 @@ public class CollectionTourService {
             CollectionTourStatus.IN_PROGRESS
     );
 
-    public static final List<CollectionTourStatus> CONFLICT_CHECK_STATUSES = List.of(
-            CollectionTourStatus.PLANNED,
-            CollectionTourStatus.CONFIRMED,
-            CollectionTourStatus.IN_PROGRESS
-    );
-
     private static final long DEFAULT_TOUR_WINDOW_HOURS = 8L;
     private static final int MIN_WORKERS_REQUIRED = 2;
     private static final double QUANTITY_EPSILON = 1e-6;
@@ -84,6 +80,8 @@ public class CollectionTourService {
     private final EquipmentService equipmentService;
     private final EquipmentAvailabilityService equipmentAvailabilityService;
     private final TourScheduleCalculationService scheduleCalculationService;
+    private final WorkerRepository workerRepository;
+    private final EquipmentRepository equipmentRepository;
 
     public CollectionTourService(CollectionTourRepository tourRepository,
                                  HarvestRequestRepository harvestRequestRepository,
@@ -94,7 +92,9 @@ public class CollectionTourService {
                                  WorkerAvailabilityService workerAvailabilityService,
                                  EquipmentService equipmentService,
                                  EquipmentAvailabilityService equipmentAvailabilityService,
-                                 TourScheduleCalculationService scheduleCalculationService) {
+                                 TourScheduleCalculationService scheduleCalculationService,
+                                 WorkerRepository workerRepository,
+                                 EquipmentRepository equipmentRepository) {
         this.tourRepository = tourRepository;
         this.harvestRequestRepository = harvestRequestRepository;
         this.orchardRepository = orchardRepository;
@@ -105,6 +105,8 @@ public class CollectionTourService {
         this.equipmentService = equipmentService;
         this.equipmentAvailabilityService = equipmentAvailabilityService;
         this.scheduleCalculationService = scheduleCalculationService;
+        this.workerRepository = workerRepository;
+        this.equipmentRepository = equipmentRepository;
     }
 
     public CollectionTourResponse createTour(CreateCollectionTourRequest request, String createdBy) {
@@ -146,7 +148,7 @@ public class CollectionTourService {
         scheduleCalculationService.recalculateTour(tour);
         validatePlannedTourConstraints(tour);
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
     public List<CollectionTourResponse> getTours(CollectionTourStatus status) {
@@ -155,12 +157,12 @@ public class CollectionTourService {
                 : tourRepository.findAllByOrderByCreatedAtDesc();
 
         return tours.stream()
-                .map(CollectionTourResponse::fromEntity)
+                .map(this::toResponse)
                 .toList();
     }
 
     public CollectionTourResponse getTourById(String tourId) {
-        return CollectionTourResponse.fromEntity(findTour(tourId));
+        return toResponse(findTour(tourId));
     }
 
     public CollectionTourResponse updateStops(String tourId, UpdateTourStopsRequest request) {
@@ -173,7 +175,7 @@ public class CollectionTourService {
         validatePlannedTourConstraints(tour);
         tour.setUpdatedAt(Instant.now());
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
     public CollectionTourResponse updateDropOffs(String tourId, UpdateTourDropOffsRequest request) {
@@ -186,7 +188,7 @@ public class CollectionTourService {
         validatePlannedTourConstraints(tour);
         tour.setUpdatedAt(Instant.now());
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
     public CollectionTourResponse assignResources(String tourId, AssignTourResourcesRequest request) {
@@ -215,7 +217,7 @@ public class CollectionTourService {
         validatePlannedTourConstraints(tour);
         tour.setUpdatedAt(Instant.now());
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
     public CollectionTourResponse recalculateTour(String tourId) {
@@ -227,10 +229,12 @@ public class CollectionTourService {
         validatePlannedTourConstraints(tour);
         tour.setUpdatedAt(Instant.now());
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
-    public CollectionTourResponse confirmTour(String tourId) {
+    // One confirmation at a time, so two tours can't both pass the resource check before either is saved.
+    // shortcut: only guards a single backend instance, use a unique-index reservation if the app is scaled out
+    public synchronized CollectionTourResponse confirmTour(String tourId) {
         CollectionTour tour = findTour(tourId);
 
         if (tour.getStatus() != CollectionTourStatus.PLANNED) {
@@ -271,7 +275,7 @@ public class CollectionTourService {
         CollectionTour saved = tourRepository.save(tour);
         syncStatusesOnTourConfirmed(saved);
 
-        return CollectionTourResponse.fromEntity(saved);
+        return toResponse(saved);
     }
 
     public CollectionTourResponse cancelTour(String tourId, CancelTourRequest request) {
@@ -295,7 +299,7 @@ public class CollectionTourService {
         CollectionTour saved = tourRepository.save(tour);
         syncStatusesOnTourCancelled(saved);
 
-        return CollectionTourResponse.fromEntity(saved);
+        return toResponse(saved);
     }
 
     public AvailableTourResourcesResponse getAvailableResourcesForTour(String tourId) {
@@ -304,25 +308,30 @@ public class CollectionTourService {
         Instant start = window[0];
         Instant end = window[1];
 
-        Set<String> bookedWorkerIds = new HashSet<>();
-        Set<String> bookedEquipmentIds = new HashSet<>();
-        collectBookedResourcesFromOverlappingTours(tour.getId(), start, end, bookedWorkerIds, bookedEquipmentIds);
-
-        List<WorkerResponse> availableWorkers = workerAvailabilityService.getAssignableWorkers(start, end).stream()
-                .filter(w -> !bookedWorkerIds.contains(w.getId()))
-                .toList();
-
-        List<EquipmentResponse> availableEquipment = equipmentAvailabilityService.getAssignableEquipment(start, end).stream()
-                .filter(eq -> !bookedEquipmentIds.contains(eq.getId()))
-                .toList();
-
         AvailableTourResourcesResponse response = new AvailableTourResourcesResponse();
         response.setTourId(tour.getId());
         response.setWindowStart(start);
         response.setWindowEnd(end);
-        response.setWorkers(availableWorkers);
-        response.setEquipment(availableEquipment);
+        response.setWorkers(getAvailableWorkers(start, end, tour.getId()));
+        response.setEquipment(getAvailableEquipment(start, end, tour.getId()));
         return response;
+    }
+
+    // #26/#35: active workers with no unavailability period and no confirmed tour overlapping [start, end).
+    // excludeTourId: the tour being edited, so its own assignments do not count as bookings (null = none).
+    public List<WorkerResponse> getAvailableWorkers(Instant start, Instant end, String excludeTourId) {
+        List<WorkerResponse> assignable = workerAvailabilityService.getAssignableWorkers(start, end);
+        Set<String> booked = new HashSet<>();
+        collectBookedResourcesFromOverlappingTours(excludeTourId, start, end, booked, new HashSet<>());
+        return assignable.stream().filter(w -> !booked.contains(w.getId())).toList();
+    }
+
+    // #26/#36: same rule for equipment (maintenance, unavailability, confirmed tours)
+    public List<EquipmentResponse> getAvailableEquipment(Instant start, Instant end, String excludeTourId) {
+        List<EquipmentResponse> assignable = equipmentAvailabilityService.getAssignableEquipment(start, end);
+        Set<String> booked = new HashSet<>();
+        collectBookedResourcesFromOverlappingTours(excludeTourId, start, end, new HashSet<>(), booked);
+        return assignable.stream().filter(e -> !booked.contains(e.getId())).toList();
     }
 
     public void validateTourResourcesAvailable(CollectionTour tour) {
@@ -369,31 +378,8 @@ public class CollectionTourService {
 
         List<String> equipmentIds = tour.getAssignedEquipmentIds() != null ? tour.getAssignedEquipmentIds() : List.of();
         List<Equipment> assignedEquipment = new ArrayList<>();
-        Set<String> assignedTypes = new HashSet<>();
         for (String eqId : equipmentIds) {
-            Equipment eq = equipmentService.findEquipment(eqId);
-            assignedEquipment.add(eq);
-            if (eq.getType() != null && !eq.getType().isBlank()) {
-                assignedTypes.add(eq.getType().trim().toUpperCase());
-            }
-        }
-
-        Set<String> requiredTypes = equipmentService.getEquipment(null, true).stream()
-                .map(EquipmentResponse::getType)
-                .filter(t -> t != null && !t.isBlank())
-                .map(t -> t.trim().toUpperCase())
-                .collect(Collectors.toSet());
-
-        if (!requiredTypes.isEmpty()) {
-            List<String> missingTypes = requiredTypes.stream()
-                    .filter(type -> !assignedTypes.contains(type))
-                    .sorted()
-                    .toList();
-            if (!missingTypes.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "A PLANNED tour must include at least one equipment item from every type. Missing types: "
-                                + String.join(", ", missingTypes));
-            }
+            assignedEquipment.add(equipmentService.findEquipment(eqId));
         }
 
         double estimatedHarvestKg = tour.getTotalQuantityKg();
@@ -564,7 +550,9 @@ public class CollectionTourService {
                                                            Instant end,
                                                            Set<String> bookedWorkerIds,
                                                            Set<String> bookedEquipmentIds) {
-        List<CollectionTour> overlappingTours = tourRepository.findByStatusIn(CONFLICT_CHECK_STATUSES);
+        // Only confirmed / in-progress tours reserve resources (#42, #43): a draft never blocks another plan,
+        // and the first tour to be confirmed wins (confirmTour re-checks).
+        List<CollectionTour> overlappingTours = tourRepository.findByStatusIn(RESOURCE_LOCKED_STATUSES);
         for (CollectionTour other : overlappingTours) {
             if (currentTourId != null && currentTourId.equals(other.getId())) {
                 continue;
@@ -597,6 +585,16 @@ public class CollectionTourService {
         if (seen.size() != ids.size()) {
             throw new IllegalArgumentException("Duplicate " + resourceLabel + " IDs are not allowed in a tour.");
         }
+    }
+
+    // Assigned workers/equipment are returned with their details, so clients need no access to the logistics API
+    private CollectionTourResponse toResponse(CollectionTour tour) {
+        CollectionTourResponse response = CollectionTourResponse.fromEntity(tour);
+        response.setAssignedWorkers(workerRepository.findAllById(tour.getAssignedWorkerIds()).stream()
+                .map(WorkerResponse::fromEntity).toList());
+        response.setAssignedEquipment(equipmentRepository.findAllById(tour.getAssignedEquipmentIds()).stream()
+                .map(EquipmentResponse::fromEntity).toList());
+        return response;
     }
 
     public CollectionTour findTour(String tourId) {

@@ -6,9 +6,8 @@ import ISIMS.olive_connect.repository.UserRepository;
 import ISIMS.olive_connect.security.AuthEntryPointJwt;
 import ISIMS.olive_connect.security.JwtUtils;
 import ISIMS.olive_connect.security.SecurityConfig;
-import ISIMS.olive_connect.service.EquipmentAvailabilityService;
+import ISIMS.olive_connect.service.CollectionTourService;
 import ISIMS.olive_connect.service.EquipmentTypeService;
-import ISIMS.olive_connect.service.WorkerAvailabilityService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -37,10 +36,7 @@ class ResourceAvailabilityControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private WorkerAvailabilityService workerAvailabilityService;
-
-    @MockitoBean
-    private EquipmentAvailabilityService equipmentAvailabilityService;
+    private CollectionTourService tourService;
 
     @MockitoBean
     private EquipmentTypeService equipmentTypeService;
@@ -64,21 +60,21 @@ class ResourceAvailabilityControllerTest {
     @Test
     void anonymous_isUnauthorized() throws Exception {
         mockMvc.perform(get(WORKERS).param("start", START).param("end", END)).andExpect(status().isUnauthorized());
-        verifyNoInteractions(workerAvailabilityService);
+        verifyNoInteractions(tourService);
     }
 
     @Test
     @WithMockUser(roles = "LOGISTICS_MANAGER")
     void logisticsManager_isForbidden() throws Exception {
         mockMvc.perform(get(EQUIPMENT).param("start", START).param("end", END)).andExpect(status().isForbidden());
-        verifyNoInteractions(equipmentAvailabilityService);
+        verifyNoInteractions(tourService);
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     void admin_isForbidden() throws Exception {
         mockMvc.perform(get(WORKERS).param("start", START).param("end", END)).andExpect(status().isForbidden());
-        verifyNoInteractions(workerAvailabilityService);
+        verifyNoInteractions(tourService);
     }
 
     // --- workers ---
@@ -89,7 +85,7 @@ class ResourceAvailabilityControllerTest {
         WorkerResponse worker = new WorkerResponse();
         worker.setId("w1");
         worker.setFullName("Ali");
-        when(workerAvailabilityService.getAssignableWorkers(Instant.parse(START), Instant.parse(END)))
+        when(tourService.getAvailableWorkers(Instant.parse(START), Instant.parse(END), null))
                 .thenReturn(List.of(worker));
 
         mockMvc.perform(get(WORKERS).param("start", START).param("end", END))
@@ -102,13 +98,13 @@ class ResourceAvailabilityControllerTest {
     @WithMockUser(roles = "COLLECTION_MANAGER")
     void workers_withoutEnd_isBadRequest() throws Exception {
         mockMvc.perform(get(WORKERS).param("start", START)).andExpect(status().isBadRequest());
-        verifyNoInteractions(workerAvailabilityService);
+        verifyNoInteractions(tourService);
     }
 
     @Test
     @WithMockUser(roles = "COLLECTION_MANAGER")
     void workers_invalidPeriod_isBadRequest() throws Exception {
-        when(workerAvailabilityService.getAssignableWorkers(Instant.parse(END), Instant.parse(START)))
+        when(tourService.getAvailableWorkers(Instant.parse(END), Instant.parse(START), null))
                 .thenThrow(new RuntimeException("Start time must be before end time."));
 
         mockMvc.perform(get(WORKERS).param("start", END).param("end", START))
@@ -121,7 +117,7 @@ class ResourceAvailabilityControllerTest {
     @Test
     @WithMockUser(roles = "COLLECTION_MANAGER")
     void equipment_withoutType_returnsAllAssignable() throws Exception {
-        when(equipmentAvailabilityService.getAssignableEquipment(Instant.parse(START), Instant.parse(END)))
+        when(tourService.getAvailableEquipment(Instant.parse(START), Instant.parse(END), null))
                 .thenReturn(List.of(equipment("e1", "BIN"), equipment("e2", "TRACTOR")));
 
         mockMvc.perform(get(EQUIPMENT).param("start", START).param("end", END))
@@ -133,7 +129,7 @@ class ResourceAvailabilityControllerTest {
     @Test
     @WithMockUser(roles = "COLLECTION_MANAGER")
     void equipment_withType_returnsOnlyThatType() throws Exception {
-        when(equipmentAvailabilityService.getAssignableEquipment(Instant.parse(START), Instant.parse(END)))
+        when(tourService.getAvailableEquipment(Instant.parse(START), Instant.parse(END), null))
                 .thenReturn(List.of(equipment("e1", "BIN"), equipment("e2", "TRACTOR")));
 
         mockMvc.perform(get(EQUIPMENT).param("start", START).param("end", END).param("type", "BIN"))
@@ -152,6 +148,6 @@ class ResourceAvailabilityControllerTest {
         mockMvc.perform(get(EQUIPMENT).param("start", START).param("end", END).param("type", "TRUCK"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Unknown equipment type: TRUCK"));
-        verifyNoInteractions(equipmentAvailabilityService);
+        verifyNoInteractions(tourService);
     }
 }

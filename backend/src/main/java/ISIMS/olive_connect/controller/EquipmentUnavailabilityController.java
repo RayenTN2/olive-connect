@@ -14,7 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/logistics/equipment")
-@PreAuthorize("hasRole('LOGISTICS_MANAGER')")
+@PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
 public class EquipmentUnavailabilityController {
 
     private final EquipmentAvailabilityService availabilityService;

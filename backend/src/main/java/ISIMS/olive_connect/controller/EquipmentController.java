@@ -14,7 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/logistics/equipment")
-@PreAuthorize("hasAnyRole('COLLECTION_MANAGER', 'LOGISTICS_MANAGER', 'ADMIN')")
+@PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
 public class EquipmentController {
 
     private final EquipmentService equipmentService;
@@ -25,7 +25,6 @@ public class EquipmentController {
 
     // US-24: Register equipment
     @PostMapping
-    @PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
     public ResponseEntity<EquipmentResponse> createEquipment(@Valid @RequestBody EquipmentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(equipmentService.createEquipment(request));
     }
@@ -46,7 +45,6 @@ public class EquipmentController {
 
     // US-24: Update equipment details
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
     public ResponseEntity<EquipmentResponse> updateEquipment(
             @PathVariable String id,
             @Valid @RequestBody EquipmentRequest request) {
@@ -55,7 +53,6 @@ public class EquipmentController {
 
     // US-24: Activate or deactivate equipment
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
     public ResponseEntity<EquipmentResponse> updateEquipmentStatus(
             @PathVariable String id,
             @Valid @RequestBody UpdateEquipmentStatusRequest request) {
