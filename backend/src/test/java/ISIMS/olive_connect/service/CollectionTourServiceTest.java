@@ -3,11 +3,13 @@ package ISIMS.olive_connect.service;
 import ISIMS.olive_connect.dto.AssignTourResourcesRequest;
 import ISIMS.olive_connect.dto.CollectionTourResponse;
 import ISIMS.olive_connect.dto.EquipmentResponse;
+import ISIMS.olive_connect.dto.EquipmentStatusResponse;
 import ISIMS.olive_connect.dto.WorkerResponse;
 import ISIMS.olive_connect.entity.AccountStatus;
 import ISIMS.olive_connect.entity.CollectionTour;
 import ISIMS.olive_connect.entity.CollectionTourStatus;
 import ISIMS.olive_connect.entity.Equipment;
+import ISIMS.olive_connect.entity.EquipmentStatus;
 import ISIMS.olive_connect.entity.Role;
 import ISIMS.olive_connect.entity.User;
 import ISIMS.olive_connect.entity.Worker;
@@ -202,6 +204,56 @@ class CollectionTourServiceTest {
                 () -> service.assignResources("T", assign(List.of("w1", "w2"), List.of())));
         assertEquals("Worker w2 is already assigned to an overlapping tour.", ex.getMessage());
         verify(tourRepository, never()).save(any());
+    }
+
+    // --- equipment IN_USE (#25): in use right now, during a running confirmed tour ---
+
+    @Test
+    void equipmentStatus_availableEquipmentInARunningConfirmedTour_isInUse() {
+        Instant now = Instant.now();
+        when(equipmentAvailabilityService.getCurrentStatus("e1"))
+                .thenReturn(new EquipmentStatusResponse("e1", EquipmentStatus.AVAILABLE, true));
+        // Only CONFIRMED / IN_PROGRESS tours are loaded: drafts, cancelled and completed tours never make equipment in use
+        when(tourRepository.findByStatusIn(CollectionTourService.RESOURCE_LOCKED_STATUSES)).thenReturn(List.of(
+                tour("A", CollectionTourStatus.CONFIRMED, now.minusSeconds(3600).toString(), now.plusSeconds(3600).toString(), List.of(), List.of("e1"))));
+
+        assertEquals(EquipmentStatus.IN_USE, service.getEquipmentStatus("e1").getStatus());
+    }
+
+    @Test
+    void equipmentStatus_withoutRunningTour_staysAvailable() {
+        Instant now = Instant.now();
+        when(equipmentAvailabilityService.getCurrentStatus("e1"))
+                .thenReturn(new EquipmentStatusResponse("e1", EquipmentStatus.AVAILABLE, true));
+        when(tourRepository.findByStatusIn(CollectionTourService.RESOURCE_LOCKED_STATUSES)).thenReturn(List.of(
+                tour("Later", CollectionTourStatus.CONFIRMED, now.plusSeconds(3600).toString(), now.plusSeconds(7200).toString(), List.of(), List.of("e1")),
+                tour("Other", CollectionTourStatus.CONFIRMED, now.minusSeconds(3600).toString(), now.plusSeconds(3600).toString(), List.of(), List.of("e2"))));
+
+        assertEquals(EquipmentStatus.AVAILABLE, service.getEquipmentStatus("e1").getStatus());
+    }
+
+    @Test
+    void equipmentStatus_maintenanceOrUnavailable_winsOverInUse() {
+        when(equipmentAvailabilityService.getCurrentStatus("e1"))
+                .thenReturn(new EquipmentStatusResponse("e1", EquipmentStatus.UNDER_MAINTENANCE, true));
+        when(equipmentAvailabilityService.getCurrentStatus("e2"))
+                .thenReturn(new EquipmentStatusResponse("e2", EquipmentStatus.UNAVAILABLE, false));
+
+        assertEquals(EquipmentStatus.UNDER_MAINTENANCE, service.getEquipmentStatus("e1").getStatus());
+        assertEquals(EquipmentStatus.UNAVAILABLE, service.getEquipmentStatus("e2").getStatus());
+        verify(tourRepository, never()).findByStatusIn(any());
+    }
+
+    @Test
+    void runningTour_windowIncludesItsStartButNotItsEnd() {
+        when(tourRepository.findByStatusIn(CollectionTourService.RESOURCE_LOCKED_STATUSES)).thenReturn(List.of(
+                tour("A", CollectionTourStatus.CONFIRMED, "2026-11-25T07:00:00Z", "2026-11-25T11:30:00Z", List.of(), List.of("e1"))));
+
+        assertFalse(service.isInRunningTour("e1", Instant.parse("2026-11-25T06:59:59Z")));
+        assertTrue(service.isInRunningTour("e1", Instant.parse("2026-11-25T07:00:00Z")));
+        assertTrue(service.isInRunningTour("e1", Instant.parse("2026-11-25T11:29:59Z")));
+        assertFalse(service.isInRunningTour("e1", Instant.parse("2026-11-25T11:30:00Z")));
+        assertFalse(service.isInRunningTour("e2", Instant.parse("2026-11-25T09:00:00Z")));
     }
 
     // confirmTour runs validateTourResourcesAvailable: drafts don't block each other, the first confirmed wins

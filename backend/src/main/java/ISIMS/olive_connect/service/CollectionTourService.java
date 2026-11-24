@@ -6,6 +6,7 @@ import ISIMS.olive_connect.dto.CancelTourRequest;
 import ISIMS.olive_connect.dto.CollectionTourResponse;
 import ISIMS.olive_connect.dto.CreateCollectionTourRequest;
 import ISIMS.olive_connect.dto.EquipmentResponse;
+import ISIMS.olive_connect.dto.EquipmentStatusResponse;
 import ISIMS.olive_connect.dto.UpdateTourDropOffsRequest;
 import ISIMS.olive_connect.dto.UpdateTourStopsRequest;
 import ISIMS.olive_connect.dto.WorkerResponse;
@@ -13,6 +14,7 @@ import ISIMS.olive_connect.entity.AccountStatus;
 import ISIMS.olive_connect.entity.CollectionTour;
 import ISIMS.olive_connect.entity.CollectionTourStatus;
 import ISIMS.olive_connect.entity.Equipment;
+import ISIMS.olive_connect.entity.EquipmentStatus;
 import ISIMS.olive_connect.entity.EquipmentType;
 import ISIMS.olive_connect.entity.HarvestRequest;
 import ISIMS.olive_connect.entity.HarvestRequestStatus;
@@ -332,6 +334,24 @@ public class CollectionTourService {
         Set<String> booked = new HashSet<>();
         collectBookedResourcesFromOverlappingTours(excludeTourId, start, end, new HashSet<>(), booked);
         return assignable.stream().filter(e -> !booked.contains(e.getId())).toList();
+    }
+
+    // #25: current equipment status. The logistics status (maintenance > unavailable > available) is kept,
+    // and AVAILABLE becomes IN_USE while a confirmed tour using the equipment is running.
+    public EquipmentStatusResponse getEquipmentStatus(String equipmentId) {
+        EquipmentStatusResponse status = equipmentAvailabilityService.getCurrentStatus(equipmentId);
+        if (status.getStatus() == EquipmentStatus.AVAILABLE && isInRunningTour(equipmentId, Instant.now())) {
+            status.setStatus(EquipmentStatus.IN_USE);
+        }
+        return status;
+    }
+
+    // True when a confirmed / in-progress tour assigned this equipment and its window [start, end) contains `at`
+    boolean isInRunningTour(String equipmentId, Instant at) {
+        return tourRepository.findByStatusIn(RESOURCE_LOCKED_STATUSES).stream()
+                .filter(tour -> tour.getAssignedEquipmentIds() != null && tour.getAssignedEquipmentIds().contains(equipmentId))
+                .map(CollectionTourService::resolveTourWindow)
+                .anyMatch(window -> !at.isBefore(window[0]) && at.isBefore(window[1]));
     }
 
     public void validateTourResourcesAvailable(CollectionTour tour) {

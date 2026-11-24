@@ -9,6 +9,7 @@ import ISIMS.olive_connect.repository.UserRepository;
 import ISIMS.olive_connect.security.AuthEntryPointJwt;
 import ISIMS.olive_connect.security.JwtUtils;
 import ISIMS.olive_connect.security.SecurityConfig;
+import ISIMS.olive_connect.service.CollectionTourService;
 import ISIMS.olive_connect.service.EquipmentAvailabilityService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,9 @@ class EquipmentUnavailabilityControllerTest {
     @MockitoBean
     private EquipmentAvailabilityService availabilityService;
 
+    @MockitoBean
+    private CollectionTourService tourService;
+
     // Required by SecurityConfig
     @MockitoBean
     private UserRepository userRepository;
@@ -73,7 +77,7 @@ class EquipmentUnavailabilityControllerTest {
     @WithMockUser(roles = "COLLECTION_MANAGER")
     void collectionManager_isForbidden() throws Exception {
         mockMvc.perform(get("/api/logistics/equipment/e1/availability")).andExpect(status().isForbidden());
-        verifyNoInteractions(availabilityService);
+        verifyNoInteractions(availabilityService, tourService);
     }
 
     @Test
@@ -193,7 +197,7 @@ class EquipmentUnavailabilityControllerTest {
     @Test
     @WithMockUser(roles = "LOGISTICS_MANAGER")
     void status_returnsCurrentStatus() throws Exception {
-        when(availabilityService.getCurrentStatus("e1"))
+        when(tourService.getEquipmentStatus("e1"))
                 .thenReturn(new EquipmentStatusResponse("e1", EquipmentStatus.UNDER_MAINTENANCE, true));
 
         mockMvc.perform(get("/api/logistics/equipment/e1/availability"))
@@ -206,9 +210,20 @@ class EquipmentUnavailabilityControllerTest {
     @Test
     @WithMockUser(roles = "LOGISTICS_MANAGER")
     void status_unknownEquipment_isNotFound() throws Exception {
-        when(availabilityService.getCurrentStatus("e9"))
+        when(tourService.getEquipmentStatus("e9"))
                 .thenThrow(new ResourceNotFoundException("Equipment not found with id: e9"));
 
         mockMvc.perform(get("/api/logistics/equipment/e9/availability")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(roles = "LOGISTICS_MANAGER")
+    void status_canBeInUse() throws Exception {
+        when(tourService.getEquipmentStatus("e1"))
+                .thenReturn(new EquipmentStatusResponse("e1", EquipmentStatus.IN_USE, true));
+
+        mockMvc.perform(get("/api/logistics/equipment/e1/availability"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_USE"));
     }
 }
