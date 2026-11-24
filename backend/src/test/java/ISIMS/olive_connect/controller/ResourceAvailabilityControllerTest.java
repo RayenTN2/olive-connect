@@ -72,9 +72,9 @@ class ResourceAvailabilityControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void admin_isForbidden() throws Exception {
-        mockMvc.perform(get(WORKERS).param("start", START).param("end", END)).andExpect(status().isForbidden());
-        verifyNoInteractions(tourService);
+    void admin_canReadAvailableWorkers() throws Exception {
+        when(tourService.getAvailableWorkers(Instant.parse(START), Instant.parse(END), null)).thenReturn(List.of());
+        mockMvc.perform(get(WORKERS).param("start", START).param("end", END)).andExpect(status().isOk());
     }
 
     // --- workers ---

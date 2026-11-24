@@ -18,7 +18,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/collection/resources")
-@PreAuthorize("hasRole('COLLECTION_MANAGER')")
+@PreAuthorize("hasAnyRole('COLLECTION_MANAGER', 'ADMIN')")
 public class ResourceAvailabilityController {
 
     private final CollectionTourService tourService;

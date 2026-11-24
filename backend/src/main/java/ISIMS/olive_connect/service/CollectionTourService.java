@@ -572,7 +572,8 @@ public class CollectionTourService {
         }
     }
 
-    private Instant[] resolveTourWindow(CollectionTour tour) {
+    // Package-visible so the resource calendar (#27) uses the same tour window as conflict checks
+    static Instant[] resolveTourWindow(CollectionTour tour) {
         Instant start = tour.getPlannedStartTime() != null ? tour.getPlannedStartTime() : Instant.now();
         Instant end = tour.getEstimatedEndTime() != null && tour.getEstimatedEndTime().isAfter(start)
                 ? tour.getEstimatedEndTime()
