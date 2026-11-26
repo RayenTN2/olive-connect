@@ -1,10 +1,10 @@
 package ISIMS.olive_connect.controller;
 
 import ISIMS.olive_connect.dto.EquipmentResponse;
+import ISIMS.olive_connect.dto.TeamLeaderResponse;
 import ISIMS.olive_connect.dto.WorkerResponse;
-import ISIMS.olive_connect.service.EquipmentAvailabilityService;
+import ISIMS.olive_connect.service.CollectionTourService;
 import ISIMS.olive_connect.service.EquipmentTypeService;
-import ISIMS.olive_connect.service.WorkerAvailabilityService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -13,25 +13,21 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * US-26: Resources the Collection Manager can assign during a proposed planning period.
- * No availability logic here: it reuses getAssignableWorkers (US-23) and getAssignableEquipment (US-25).
- * shortcut: confirmed tour assignments are not considered yet (no tours exist) — add them inside
- * those two service methods in #35/#36/#43 and these endpoints pick them up unchanged.
+ * US-26: Resources the Collection Manager can assign during a proposed planning period (before a tour exists).
+ * Same rule as /api/collection-tours/{id}/available-resources: unavailability periods (US-23/US-25)
+ * and confirmed tours, both computed by CollectionTourService.
  */
 @RestController
 @RequestMapping("/api/collection/resources")
-@PreAuthorize("hasRole('COLLECTION_MANAGER')")
+@PreAuthorize("hasAnyRole('COLLECTION_MANAGER', 'ADMIN')")
 public class ResourceAvailabilityController {
 
-    private final WorkerAvailabilityService workerAvailabilityService;
-    private final EquipmentAvailabilityService equipmentAvailabilityService;
+    private final CollectionTourService tourService;
     private final EquipmentTypeService equipmentTypeService;
 
-    public ResourceAvailabilityController(WorkerAvailabilityService workerAvailabilityService,
-                                          EquipmentAvailabilityService equipmentAvailabilityService,
+    public ResourceAvailabilityController(CollectionTourService tourService,
                                           EquipmentTypeService equipmentTypeService) {
-        this.workerAvailabilityService = workerAvailabilityService;
-        this.equipmentAvailabilityService = equipmentAvailabilityService;
+        this.tourService = tourService;
         this.equipmentTypeService = equipmentTypeService;
     }
 
@@ -40,7 +36,15 @@ public class ResourceAvailabilityController {
     public ResponseEntity<List<WorkerResponse>> getAvailableWorkers(
             @RequestParam Instant start,
             @RequestParam Instant end) {
-        return ResponseEntity.ok(workerAvailabilityService.getAssignableWorkers(start, end));
+        return ResponseEntity.ok(tourService.getAvailableWorkers(start, end, null));
+    }
+
+    // Active team leaders with no confirmed tour during the period
+    @GetMapping("/team-leaders")
+    public ResponseEntity<List<TeamLeaderResponse>> getAvailableTeamLeaders(
+            @RequestParam Instant start,
+            @RequestParam Instant end) {
+        return ResponseEntity.ok(tourService.getAvailableTeamLeaders(start, end));
     }
 
     // US-26: Active equipment free during the whole period, optionally of one type (?type=BIN)
@@ -52,7 +56,7 @@ public class ResourceAvailabilityController {
         if (type != null) {
             equipmentTypeService.requireKnownType(type);
         }
-        List<EquipmentResponse> equipment = equipmentAvailabilityService.getAssignableEquipment(start, end);
+        List<EquipmentResponse> equipment = tourService.getAvailableEquipment(start, end, null);
         return ResponseEntity.ok(type == null
                 ? equipment
                 : equipment.stream().filter(item -> type.equals(item.getType())).toList());

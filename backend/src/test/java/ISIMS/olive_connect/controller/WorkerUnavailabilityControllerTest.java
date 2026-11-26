@@ -74,10 +74,9 @@ class WorkerUnavailabilityControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void admin_isForbidden() throws Exception {
+    void admin_isAllowed() throws Exception {
         mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
-                .andExpect(status().isForbidden());
-        verifyNoInteractions(availabilityService);
+                .andExpect(result -> org.junit.jupiter.api.Assertions.assertNotEquals(403, result.getResponse().getStatus()));
     }
 
     // --- create ---

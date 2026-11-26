@@ -96,10 +96,6 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**", "/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/orchards/map/public").permitAll()
 
-                // Allow Collection Managers to read workers and equipment for tour planning
-                .requestMatchers(HttpMethod.GET, "/api/logistics/workers/**", "/api/logistics/equipment/**")
-                    .hasAnyRole("COLLECTION_MANAGER", "LOGISTICS_MANAGER", "ADMIN")
-
                 // Role-Based URL Patterns
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/farmer/**").hasAnyRole("FARMER", "ADMIN")

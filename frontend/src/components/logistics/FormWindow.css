@@ -1,0 +1,51 @@
+.window { width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 48px); margin: auto; padding: 0; border: 0; border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 70px rgb(20 30 25 / .28); overflow: hidden; }
+.window::backdrop { background: rgb(36 53 42 / .42); }
+.window[open] { animation: window-in .22s var(--ease); }
+.window[open]::backdrop { animation: window-shade .22s var(--ease); }
+@keyframes window-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+@keyframes window-shade { from { opacity: 0; } }
+.window form { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
+
+.window-head { flex: none; display: flex; align-items: center; gap: 14px; padding: 24px 24px 16px; }
+.window-icon { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 17px; background: var(--sage); color: var(--grove); font-size: 18px; font-weight: 600; }
+.window-title { flex: 1; min-width: 0; }
+.window-title h2 { font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: -.025em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.window-title p { font-size: 14px; }
+.window-head .icon-button { align-self: start; margin: -6px -8px 0 0; }
+
+.window-body { position: relative; flex: 1; min-height: 0; display: grid; align-content: start; gap: 12px; padding: 4px 24px 20px; overflow-y: auto; font-size: 14px; scrollbar-color: var(--edge) transparent; scrollbar-width: thin; }
+/* The label is inside the box */
+.window .field { gap: 0; align-content: start; min-width: 0; margin: 0; padding: 8px 14px 7px; border: 1.5px solid transparent; border-radius: 15px; background: var(--wash); transition: border-color .15s, background .15s; }
+.window .field:hover { border-color: var(--line); }
+.window .field:focus-within { border-color: var(--olive); background: var(--surface); box-shadow: 0 0 0 4px var(--olive-ring); }
+.window .field:has([aria-invalid]) { border-color: var(--danger); }
+.window .field label { color: var(--soft); font-size: 12px; font-weight: 500; }
+.window .field input { width: 100%; min-width: 0; height: 26px; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: 15px; font-weight: 400; }
+.window .field input:focus { outline: 0; }
+.window .field input::placeholder { color: #75806f; opacity: 1; }
+.window .field-hint { padding-bottom: 3px; font-size: 12px; }
+.window .field-pair { align-items: stretch; }
+
+.type-cards { min-width: 0; margin: 0; padding: 0; border: 0; }
+.type-cards legend { padding: 0; margin-bottom: 8px; color: var(--soft); font-size: 13px; font-weight: 500; }
+.type-cards > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.type-cards label { position: relative; display: grid; justify-items: center; align-content: center; gap: 5px; min-height: 80px; padding: 10px 6px; border: 1.5px solid var(--line); border-radius: 16px; color: var(--soft); font-size: 13px; font-weight: 500; line-height: 1.25; text-align: center; overflow-wrap: anywhere; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.type-cards label:hover { border-color: var(--edge); color: var(--ink); }
+.type-cards label:has(:checked) { border-color: var(--olive); background: var(--sage); color: var(--grove); }
+.type-cards label:has(:focus-visible) { outline: 2px solid var(--olive); outline-offset: 2px; }
+.type-cards input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.type-cards .field-hint { display: block; margin-top: 6px; }
+
+.window-more summary { width: fit-content; padding: 6px 0; color: var(--olive); font-weight: 600; cursor: pointer; list-style: none; border-radius: 8px; }
+.window-more summary::-webkit-details-marker { display: none; }
+.window-more summary::before { content: "+"; display: inline-block; width: 18px; }
+.window-more[open] summary::before { content: "–"; }
+.window-more summary:hover { text-decoration: underline; text-underline-offset: 3px; }
+.window-more > div { display: grid; gap: 12px; padding-top: 8px; }
+
+.window-foot { flex: none; display: grid; gap: 10px; padding: 16px 24px 18px; border-top: 1px solid var(--line); font-size: 14px; }
+.window-foot .leaving { margin: 0; }
+.window-buttons { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.window-buttons .button { height: 44px; font-size: 15px; }
+.window-buttons .button-quiet { height: 44px; padding: 0 16px; }
+@media (prefers-reduced-motion: reduce) { .window[open], .window[open]::backdrop { animation: none; } }

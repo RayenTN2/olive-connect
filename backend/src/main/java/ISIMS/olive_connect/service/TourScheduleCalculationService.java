@@ -79,10 +79,11 @@ public class TourScheduleCalculationService {
             waypoints.add(new GeoPoint(lat, lon));
         }
 
-        List<OilMill> resolvedMills = new ArrayList<>();
+        // One trip for every mill of the tour
+        Map<String, OilMill> mills = dropOffs.isEmpty() ? Map.of()
+                : oilMillService.findOilMills(dropOffs.stream().map(OilMillDropOff::getOilMillId).distinct().toList());
         for (OilMillDropOff dropOff : dropOffs) {
-            OilMill mill = oilMillService.findOilMill(dropOff.getOilMillId());
-            resolvedMills.add(mill);
+            OilMill mill = mills.get(dropOff.getOilMillId());
             dropOff.setOilMillName(mill.getName());
             dropOff.setLatitude(mill.getLatitude());
             dropOff.setLongitude(mill.getLongitude());
@@ -90,6 +91,7 @@ public class TourScheduleCalculationService {
         }
 
         RouteCalculationResult route = routeClient.calculateRoute(waypoints);
+        tour.setRouteEstimated(route.isEstimated());
         tour.setRouteGeometry(toGeometryList(route.getGeometryPoints()));
 
         List<RouteLeg> legs = route.getLegs();

@@ -1,0 +1,23 @@
+.period label { display: inline-flex; align-items: center; gap: 8px; }
+.period [aria-invalid] { border-color: var(--danger); }
+/* Every kind of resource stays visible as a compact pill; only one list is shown */
+.resource-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.resource-tabs button { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 6px 0 14px; border: 1px solid var(--line); border-radius: 19px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.resource-tabs button:hover { border-color: var(--edge); }
+.resource-tabs .tab-count { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 13px; background: var(--sage); color: var(--grove); font-size: 13px; font-weight: 600; line-height: 26px; text-align: center; }
+.resource-tabs .tab-extra { margin-right: 8px; color: var(--soft); font-size: 13px; font-weight: 400; }
+.resource-tabs button.none .tab-count { background: var(--grey-tint); color: var(--soft); }
+.resource-tabs [aria-selected=true] { border-color: var(--olive); background: var(--olive); color: #fff; }
+.resource-tabs [aria-selected=true] .tab-count { background: rgb(255 255 255 / .22); color: #fff; }
+.resource-tabs [aria-selected=true] .tab-extra { color: var(--on-grove); }
+.resource-tabs button:focus-visible { outline-offset: 2px; }
+.resource-panel { margin-top: 16px; padding: 18px 22px 22px; border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); font-size: 14px; }
+.resource-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.resource-tools input { width: 300px; height: 38px; padding: 0 10px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.resource-tools input::placeholder { color: var(--soft); opacity: 1; }
+.resource-tools input:focus-visible { outline: 0; border-color: var(--olive); box-shadow: 0 0 0 1px var(--olive), 0 0 0 4px var(--olive-ring); }
+/* One resource per line */
+.resource-list { padding: 0; list-style: none; }
+.resource-list li { display: flex; justify-content: space-between; gap: 12px; min-width: 0; padding: 9px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.resource-list .muted { flex: none; max-width: 55%; text-align: right; }
+.resource-list a { color: var(--soft); text-underline-offset: 3px; }

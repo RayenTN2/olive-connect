@@ -1,0 +1,39 @@
+/* Desktop layout only for now */
+.login { --pad: clamp(56px, 8vw, 116px); --start: max(var(--pad), 50vw - 604px); min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+/* Both halves share one top line, so heading and form stay level and nothing moves when a message appears */
+.login-intro, .login-work { --top: max(250px, 33vh); position: relative; padding: var(--top) var(--pad) 96px; }
+.login-intro { padding-left: var(--start); background: var(--grove); color: #fff; }
+.login-work { background: var(--surface); }
+.login-work form { width: min(100%, 420px); }
+.login-lead { margin-top: 18px; color: var(--on-grove); font-size: 16px; max-width: 36ch; text-wrap: pretty; }
+.login-foot { position: absolute; bottom: 40px; left: var(--start); color: var(--on-grove); font-size: 13px; }
+.login .brand { position: absolute; top: 44px; left: var(--start); }
+.login h1 { margin-top: -5px; }
+.login h1 span { display: block; }
+.login .button { width: 100%; margin-top: 16px; }
+.fields { border: 1px solid var(--edge); border-radius: 16px; background: var(--surface);  }
+.fields.refused { border-color: var(--danger); box-shadow: 0 0 0 .5px var(--danger); }
+.fields.refused .cell:has(input:focus) { box-shadow: 0 0 0 1.5px var(--danger), 0 0 0 5px var(--danger-ring); }
+.fields.refused .cell:has(input:focus) label { color: var(--danger); }
+.cell { position: relative; display: grid; padding: 11px 16px 10px; border-radius: 15px; transition: box-shadow .15s; }
+.cell + .cell { border-top: 1px solid var(--line); border-top-left-radius: 0; border-top-right-radius: 0; }
+.cell:first-child { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.cell label { font-size: 13px; font-weight: 500; line-height: 18px; color: var(--soft); cursor: text; transition: color .15s; }
+.cell input { width: 100%; height: 26px; padding: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 16px; color: var(--ink); }
+.cell input:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px #fff inset; -webkit-text-fill-color: var(--ink); }
+.cell:hover:not(:focus-within) label { color: var(--ink); }
+.cell input:focus-visible { outline: 0; }
+.cell:has(input:focus) { z-index: 1; box-shadow: 0 0 0 1.5px var(--olive), 0 0 0 5px var(--olive-ring); border-radius: 15px; }
+.cell:has(input:focus) label { color: var(--olive); }
+.cell.bad { z-index: 1; border-radius: 15px; box-shadow: 0 0 0 1.5px var(--danger); }
+.cell.bad:has(input:focus) { box-shadow: 0 0 0 1.5px var(--danger), 0 0 0 5px var(--danger-ring); }
+.cell.bad label { color: var(--danger) !important; }
+/* The label covers the whole cell, so a click anywhere focuses the input */
+.cell label::after { content: ""; position: absolute; inset: 0; }
+.cell input { position: relative; outline-offset: 0; }
+#password { padding-right: 76px; }
+.reveal { position: absolute; right: 8px; bottom: 8px; height: 32px; padding: 0 9px; border: 0; border-radius: 5px; background: none; color: var(--soft); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s, color .15s; }
+.reveal:hover { background: var(--wash); color: var(--ink); }
+.login-message { display: flex; gap: 9px; margin-top: 12px; color: var(--danger); font-size: 14px; line-height: 20px; }
+.login-message.info { color: var(--soft); }
+.login-message svg { flex: none; width: 18px; height: 18px; margin-top: 1px; }

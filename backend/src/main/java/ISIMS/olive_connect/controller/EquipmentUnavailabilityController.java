@@ -3,6 +3,7 @@ package ISIMS.olive_connect.controller;
 import ISIMS.olive_connect.dto.EquipmentStatusResponse;
 import ISIMS.olive_connect.dto.EquipmentUnavailabilityRequest;
 import ISIMS.olive_connect.dto.EquipmentUnavailabilityResponse;
+import ISIMS.olive_connect.service.CollectionTourService;
 import ISIMS.olive_connect.service.EquipmentAvailabilityService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -14,13 +15,16 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/logistics/equipment")
-@PreAuthorize("hasRole('LOGISTICS_MANAGER')")
+@PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
 public class EquipmentUnavailabilityController {
 
     private final EquipmentAvailabilityService availabilityService;
+    private final CollectionTourService tourService;
 
-    public EquipmentUnavailabilityController(EquipmentAvailabilityService availabilityService) {
+    public EquipmentUnavailabilityController(EquipmentAvailabilityService availabilityService,
+                                             CollectionTourService tourService) {
         this.availabilityService = availabilityService;
+        this.tourService = tourService;
     }
 
     // US-25: Mark equipment as under maintenance or unavailable for a period
@@ -58,8 +62,9 @@ public class EquipmentUnavailabilityController {
 
     // US-25: Consult the current (computed) equipment availability.
     // Not "/status": PATCH /{id}/status already means active/inactive (US-24).
+    // Through the tour service, which adds IN_USE while a confirmed tour uses the equipment.
     @GetMapping("/{equipmentId}/availability")
     public ResponseEntity<EquipmentStatusResponse> getCurrentStatus(@PathVariable String equipmentId) {
-        return ResponseEntity.ok(availabilityService.getCurrentStatus(equipmentId));
+        return ResponseEntity.ok(tourService.getEquipmentStatus(equipmentId));
     }
 }

@@ -8,7 +8,11 @@ import ISIMS.olive_connect.repository.OilMillRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class OilMillService {
@@ -76,6 +80,18 @@ public class OilMillService {
         mill.setUpdatedAt(Instant.now());
 
         return OilMillResponse.fromEntity(oilMillRepository.save(mill));
+    }
+
+    // One trip for all ids; an unknown id is refused with findOilMill's message
+    public Map<String, OilMill> findOilMills(Collection<String> ids) {
+        Map<String, OilMill> found = oilMillRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(OilMill::getId, Function.identity()));
+        for (String id : ids) {
+            if (!found.containsKey(id)) {
+                throw new ResourceNotFoundException("Oil mill not found with id: " + id);
+            }
+        }
+        return found;
     }
 
     public OilMill findOilMill(String id) {

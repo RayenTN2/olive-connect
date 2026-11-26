@@ -6,13 +6,17 @@ import ISIMS.olive_connect.dto.CancelTourRequest;
 import ISIMS.olive_connect.dto.CollectionTourResponse;
 import ISIMS.olive_connect.dto.CreateCollectionTourRequest;
 import ISIMS.olive_connect.dto.EquipmentResponse;
+import ISIMS.olive_connect.dto.EquipmentStatusResponse;
+import ISIMS.olive_connect.dto.TeamLeaderResponse;
 import ISIMS.olive_connect.dto.UpdateTourDropOffsRequest;
 import ISIMS.olive_connect.dto.UpdateTourStopsRequest;
+import ISIMS.olive_connect.dto.UpdateTourTeamLeaderRequest;
 import ISIMS.olive_connect.dto.WorkerResponse;
 import ISIMS.olive_connect.entity.AccountStatus;
 import ISIMS.olive_connect.entity.CollectionTour;
 import ISIMS.olive_connect.entity.CollectionTourStatus;
 import ISIMS.olive_connect.entity.Equipment;
+import ISIMS.olive_connect.entity.EquipmentStatus;
 import ISIMS.olive_connect.entity.EquipmentType;
 import ISIMS.olive_connect.entity.HarvestRequest;
 import ISIMS.olive_connect.entity.HarvestRequestStatus;
@@ -26,9 +30,12 @@ import ISIMS.olive_connect.entity.User;
 import ISIMS.olive_connect.entity.Worker;
 import ISIMS.olive_connect.exception.ResourceNotFoundException;
 import ISIMS.olive_connect.repository.CollectionTourRepository;
+import ISIMS.olive_connect.repository.EquipmentRepository;
 import ISIMS.olive_connect.repository.HarvestRequestRepository;
 import ISIMS.olive_connect.repository.OrchardRepository;
 import ISIMS.olive_connect.repository.UserRepository;
+import ISIMS.olive_connect.repository.WorkerRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -39,13 +46,17 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class CollectionTourService {
@@ -57,12 +68,6 @@ public class CollectionTourService {
     );
 
     public static final List<CollectionTourStatus> RESOURCE_LOCKED_STATUSES = List.of(
-            CollectionTourStatus.CONFIRMED,
-            CollectionTourStatus.IN_PROGRESS
-    );
-
-    public static final List<CollectionTourStatus> CONFLICT_CHECK_STATUSES = List.of(
-            CollectionTourStatus.PLANNED,
             CollectionTourStatus.CONFIRMED,
             CollectionTourStatus.IN_PROGRESS
     );
@@ -84,6 +89,8 @@ public class CollectionTourService {
     private final EquipmentService equipmentService;
     private final EquipmentAvailabilityService equipmentAvailabilityService;
     private final TourScheduleCalculationService scheduleCalculationService;
+    private final WorkerRepository workerRepository;
+    private final EquipmentRepository equipmentRepository;
 
     public CollectionTourService(CollectionTourRepository tourRepository,
                                  HarvestRequestRepository harvestRequestRepository,
@@ -94,7 +101,9 @@ public class CollectionTourService {
                                  WorkerAvailabilityService workerAvailabilityService,
                                  EquipmentService equipmentService,
                                  EquipmentAvailabilityService equipmentAvailabilityService,
-                                 TourScheduleCalculationService scheduleCalculationService) {
+                                 TourScheduleCalculationService scheduleCalculationService,
+                                 WorkerRepository workerRepository,
+                                 EquipmentRepository equipmentRepository) {
         this.tourRepository = tourRepository;
         this.harvestRequestRepository = harvestRequestRepository;
         this.orchardRepository = orchardRepository;
@@ -105,6 +114,8 @@ public class CollectionTourService {
         this.equipmentService = equipmentService;
         this.equipmentAvailabilityService = equipmentAvailabilityService;
         this.scheduleCalculationService = scheduleCalculationService;
+        this.workerRepository = workerRepository;
+        this.equipmentRepository = equipmentRepository;
     }
 
     public CollectionTourResponse createTour(CreateCollectionTourRequest request, String createdBy) {
@@ -132,12 +143,8 @@ public class CollectionTourService {
         List<String> equipmentIds = request.getEquipmentIds() != null ? request.getEquipmentIds() : List.of();
         validateNoDuplicates(workerIds, "worker");
         validateNoDuplicates(equipmentIds, "equipment");
-        for (String workerId : workerIds) {
-            workerService.findWorker(workerId);
-        }
-        for (String equipmentId : equipmentIds) {
-            equipmentService.findEquipment(equipmentId);
-        }
+        loadWorkers(workerIds);
+        loadEquipment(equipmentIds);
         validateResourcesForWindow(tour, workerIds, equipmentIds);
         tour.setAssignedWorkerIds(new ArrayList<>(workerIds));
         tour.setAssignedEquipmentIds(new ArrayList<>(equipmentIds));
@@ -145,8 +152,10 @@ public class CollectionTourService {
         recomputeTotals(tour);
         scheduleCalculationService.recalculateTour(tour);
         validatePlannedTourConstraints(tour);
+        validateAllocationMatchesHarvest(tour);
+        validateTeamLeaderAvailable(tour);
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
     public List<CollectionTourResponse> getTours(CollectionTourStatus status) {
@@ -154,13 +163,11 @@ public class CollectionTourService {
                 ? tourRepository.findByStatusOrderByPlannedStartTimeAsc(status)
                 : tourRepository.findAllByOrderByCreatedAtDesc();
 
-        return tours.stream()
-                .map(CollectionTourResponse::fromEntity)
-                .toList();
+        return toResponses(tours);
     }
 
     public CollectionTourResponse getTourById(String tourId) {
-        return CollectionTourResponse.fromEntity(findTour(tourId));
+        return toResponse(findTour(tourId));
     }
 
     public CollectionTourResponse updateStops(String tourId, UpdateTourStopsRequest request) {
@@ -173,7 +180,7 @@ public class CollectionTourService {
         validatePlannedTourConstraints(tour);
         tour.setUpdatedAt(Instant.now());
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
     public CollectionTourResponse updateDropOffs(String tourId, UpdateTourDropOffsRequest request) {
@@ -186,7 +193,7 @@ public class CollectionTourService {
         validatePlannedTourConstraints(tour);
         tour.setUpdatedAt(Instant.now());
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
     public CollectionTourResponse assignResources(String tourId, AssignTourResourcesRequest request) {
@@ -199,12 +206,8 @@ public class CollectionTourService {
         validateNoDuplicates(workerIds, "worker");
         validateNoDuplicates(equipmentIds, "equipment");
 
-        for (String workerId : workerIds) {
-            workerService.findWorker(workerId);
-        }
-        for (String equipmentId : equipmentIds) {
-            equipmentService.findEquipment(equipmentId);
-        }
+        loadWorkers(workerIds);
+        loadEquipment(equipmentIds);
 
         validateResourcesForWindow(tour, workerIds, equipmentIds);
 
@@ -215,7 +218,19 @@ public class CollectionTourService {
         validatePlannedTourConstraints(tour);
         tour.setUpdatedAt(Instant.now());
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
+    }
+
+    // Synchronized with confirmTour, so saving a stale draft can't undo a confirmation
+    public synchronized CollectionTourResponse updateTeamLeader(String tourId, UpdateTourTeamLeaderRequest request) {
+        CollectionTour tour = findTour(tourId);
+        ensureEditable(tour);
+
+        tour.setTeamLeaderId(validateAndResolveTeamLeader(request.getTeamLeaderId()));
+        validateTeamLeaderAvailable(tour);
+        tour.setUpdatedAt(Instant.now());
+
+        return toResponse(tourRepository.save(tour));
     }
 
     public CollectionTourResponse recalculateTour(String tourId) {
@@ -227,10 +242,12 @@ public class CollectionTourService {
         validatePlannedTourConstraints(tour);
         tour.setUpdatedAt(Instant.now());
 
-        return CollectionTourResponse.fromEntity(tourRepository.save(tour));
+        return toResponse(tourRepository.save(tour));
     }
 
-    public CollectionTourResponse confirmTour(String tourId) {
+    // One confirmation at a time, so two tours can't both pass the resource check before either is saved.
+    // shortcut: only guards a single backend instance, use a unique-index reservation if the app is scaled out
+    public synchronized CollectionTourResponse confirmTour(String tourId) {
         CollectionTour tour = findTour(tourId);
 
         if (tour.getStatus() != CollectionTourStatus.PLANNED) {
@@ -242,26 +259,23 @@ public class CollectionTourService {
         if (tour.getDropOffs() == null || tour.getDropOffs().isEmpty()) {
             throw new IllegalStateException("Cannot confirm a tour with no oil mill drop-offs.");
         }
+        // Read once: this method is synchronized, so the tours confirmed here don't change meanwhile
+        List<CollectionTour> locked = tourRepository.findByStatusIn(RESOURCE_LOCKED_STATUSES);
+        validateOrchardsNotInAnotherTour(tour, locked);
+        validateRequestsStillApproved(tour);
 
         recomputeTotals(tour);
         scheduleCalculationService.recalculateTour(tour);
         validatePlannedTourConstraints(tour);
+        validateAllocationMatchesHarvest(tour);
 
-        List<CreateCollectionTourRequest.OilMillDropOffInput> dropOffInputs = tour.getDropOffs().stream()
-                .map(d -> {
-                    CreateCollectionTourRequest.OilMillDropOffInput input =
-                            new CreateCollectionTourRequest.OilMillDropOffInput();
-                    input.setOilMillId(d.getOilMillId());
-                    input.setAllocatedQuantityKg(d.getAllocatedQuantityKg());
-                    return input;
-                })
-                .toList();
-        tour.setDropOffs(buildDropOffs(dropOffInputs, tour.getPlannedStartTime(), tour.getId()));
+        // The drop-offs are kept: rebuilding them erased what recalculateTour filled in and forced a second route
+        checkMillCapacity(tour.getDropOffs().stream().collect(Collectors.toMap(
+                        OilMillDropOff::getOilMillId, OilMillDropOff::getAllocatedQuantityKg, Double::sum)),
+                tour.getPlannedStartTime(), tour.getId());
 
-        validateTourResourcesAvailable(tour);
-
-        recomputeTotals(tour);
-        scheduleCalculationService.recalculateTour(tour);
+        validateTourResourcesAvailable(tour, locked);
+        validateTeamLeaderAvailable(tour, locked);
 
         Instant now = Instant.now();
         tour.setStatus(CollectionTourStatus.CONFIRMED);
@@ -271,12 +285,25 @@ public class CollectionTourService {
         CollectionTour saved = tourRepository.save(tour);
         syncStatusesOnTourConfirmed(saved);
 
-        return CollectionTourResponse.fromEntity(saved);
+        return toResponse(saved);
+    }
+
+    // Only a draft can be removed: it reserved nothing, while other tours are kept as history.
+    // Synchronized with confirmTour, so a tour being confirmed can't be deleted
+    public synchronized void deleteDraft(String tourId) {
+        CollectionTour tour = findTour(tourId);
+        if (tour.getStatus() != CollectionTourStatus.PLANNED) {
+            throw new IllegalStateException("Only PLANNED tours can be deleted. Current status: " + tour.getStatus());
+        }
+        tourRepository.delete(tour);
     }
 
     public CollectionTourResponse cancelTour(String tourId, CancelTourRequest request) {
         CollectionTour tour = findTour(tourId);
 
+        if (tour.getStatus() == CollectionTourStatus.PLANNED) {
+            throw new IllegalStateException("Only confirmed tours can be cancelled. Delete the draft instead.");
+        }
         if (tour.getStatus() == CollectionTourStatus.COMPLETED) {
             throw new IllegalStateException("Completed tours cannot be cancelled.");
         }
@@ -295,7 +322,7 @@ public class CollectionTourService {
         CollectionTour saved = tourRepository.save(tour);
         syncStatusesOnTourCancelled(saved);
 
-        return CollectionTourResponse.fromEntity(saved);
+        return toResponse(saved);
     }
 
     public AvailableTourResourcesResponse getAvailableResourcesForTour(String tourId) {
@@ -304,37 +331,107 @@ public class CollectionTourService {
         Instant start = window[0];
         Instant end = window[1];
 
-        Set<String> bookedWorkerIds = new HashSet<>();
-        Set<String> bookedEquipmentIds = new HashSet<>();
-        collectBookedResourcesFromOverlappingTours(tour.getId(), start, end, bookedWorkerIds, bookedEquipmentIds);
-
-        List<WorkerResponse> availableWorkers = workerAvailabilityService.getAssignableWorkers(start, end).stream()
-                .filter(w -> !bookedWorkerIds.contains(w.getId()))
-                .toList();
-
-        List<EquipmentResponse> availableEquipment = equipmentAvailabilityService.getAssignableEquipment(start, end).stream()
-                .filter(eq -> !bookedEquipmentIds.contains(eq.getId()))
-                .toList();
-
         AvailableTourResourcesResponse response = new AvailableTourResourcesResponse();
         response.setTourId(tour.getId());
         response.setWindowStart(start);
         response.setWindowEnd(end);
-        response.setWorkers(availableWorkers);
-        response.setEquipment(availableEquipment);
+        response.setWorkers(getAvailableWorkers(start, end, tour.getId()));
+        response.setEquipment(getAvailableEquipment(start, end, tour.getId()));
         return response;
     }
 
+    // #26/#35: active workers with no unavailability period and no confirmed tour overlapping [start, end).
+    // excludeTourId: the tour being edited, so its own assignments do not count as bookings (null = none).
+    public List<WorkerResponse> getAvailableWorkers(Instant start, Instant end, String excludeTourId) {
+        List<WorkerResponse> assignable = workerAvailabilityService.getAssignableWorkers(start, end);
+        Set<String> booked = new HashSet<>();
+        collectBookedResourcesFromOverlappingTours(excludeTourId, start, end, booked, new HashSet<>());
+        return assignable.stream().filter(w -> !booked.contains(w.getId())).toList();
+    }
+
+    // #26/#36: same rule for equipment (maintenance, unavailability, confirmed tours)
+    public List<EquipmentResponse> getAvailableEquipment(Instant start, Instant end, String excludeTourId) {
+        List<EquipmentResponse> assignable = equipmentAvailabilityService.getAssignableEquipment(start, end);
+        Set<String> booked = new HashSet<>();
+        collectBookedResourcesFromOverlappingTours(excludeTourId, start, end, new HashSet<>(), booked);
+        return assignable.stream().filter(e -> !booked.contains(e.getId())).toList();
+    }
+
+    // Active team leaders with no confirmed tour overlapping [start, end), sorted by name
+    public List<TeamLeaderResponse> getAvailableTeamLeaders(Instant start, Instant end) {
+        if (!start.isBefore(end)) {
+            throw new IllegalArgumentException("Start time must be before end time.");
+        }
+        Set<String> booked = findOverlappingTours(null, start, end).stream()
+                .map(CollectionTour::getTeamLeaderId)
+                .collect(Collectors.toSet());
+        return userRepository.findByRoleAndStatus(Role.TEAM_LEADER, AccountStatus.ACTIVE).stream()
+                .filter(user -> !booked.contains(user.getId()))
+                .map(TeamLeaderResponse::fromEntity)
+                .sorted(Comparator.comparing(TeamLeaderResponse::getFullName,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+    }
+
+    // #25: current equipment status. The logistics status (maintenance > unavailable > available) is kept,
+    // and AVAILABLE becomes IN_USE while a confirmed tour using the equipment is running.
+    public EquipmentStatusResponse getEquipmentStatus(String equipmentId) {
+        EquipmentStatusResponse status = equipmentAvailabilityService.getCurrentStatus(equipmentId);
+        if (status.getStatus() == EquipmentStatus.AVAILABLE && isInRunningTour(equipmentId, Instant.now())) {
+            status.setStatus(EquipmentStatus.IN_USE);
+        }
+        return status;
+    }
+
+    // True when a confirmed / in-progress tour assigned this equipment and its window [start, end) contains `at`
+    boolean isInRunningTour(String equipmentId, Instant at) {
+        return tourRepository.findByStatusIn(RESOURCE_LOCKED_STATUSES).stream()
+                .filter(tour -> tour.getAssignedEquipmentIds() != null && tour.getAssignedEquipmentIds().contains(equipmentId))
+                .map(CollectionTourService::resolveTourWindow)
+                .anyMatch(window -> !at.isBefore(window[0]) && at.isBefore(window[1]));
+    }
+
     public void validateTourResourcesAvailable(CollectionTour tour) {
+        validateTourResourcesAvailable(tour, tourRepository.findByStatusIn(RESOURCE_LOCKED_STATUSES));
+    }
+
+    // locked: the confirmed / in-progress tours, already read by the caller
+    private void validateTourResourcesAvailable(CollectionTour tour, List<CollectionTour> locked) {
         List<String> workerIds = tour.getAssignedWorkerIds() != null ? tour.getAssignedWorkerIds() : List.of();
         List<String> equipmentIds = tour.getAssignedEquipmentIds() != null ? tour.getAssignedEquipmentIds() : List.of();
-        for (String workerId : workerIds) {
-            workerService.findWorker(workerId);
+        loadWorkers(workerIds);
+        loadEquipment(equipmentIds);
+        validateResourcesForWindow(tour, workerIds, equipmentIds, locked);
+    }
+
+    // One trip for all ids; an unknown id is refused with WorkerService.findWorker's message
+    private Map<String, Worker> loadWorkers(List<String> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
         }
-        for (String equipmentId : equipmentIds) {
-            equipmentService.findEquipment(equipmentId);
+        Map<String, Worker> found = workerRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Worker::getId, Function.identity()));
+        for (String id : ids) {
+            if (!found.containsKey(id)) {
+                throw new ResourceNotFoundException("Worker not found with id: " + id);
+            }
         }
-        validateResourcesForWindow(tour, workerIds, equipmentIds);
+        return found;
+    }
+
+    // One trip for all ids; an unknown id is refused with EquipmentService.findEquipment's message
+    private Map<String, Equipment> loadEquipment(List<String> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Equipment> found = equipmentRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Equipment::getId, Function.identity()));
+        for (String id : ids) {
+            if (!found.containsKey(id)) {
+                throw new ResourceNotFoundException("Equipment not found with id: " + id);
+            }
+        }
+        return found;
     }
 
     private String validateAndResolveTeamLeader(String rawTeamLeaderId) {
@@ -355,6 +452,58 @@ public class CollectionTourService {
         return teamLeaderId;
     }
 
+    // An orchard can be in only one confirmed / in-progress tour at a time, whatever the dates
+    private void validateOrchardsNotInAnotherTour(CollectionTour tour, List<CollectionTour> locked) {
+        Set<String> orchardIds = tour.getStops().stream().map(TourStop::getOrchardId).collect(Collectors.toSet());
+        for (CollectionTour other : locked) {
+            for (TourStop stop : other.getStops()) {
+                if (orchardIds.contains(stop.getOrchardId())) {
+                    throw new IllegalStateException("Cannot confirm: orchard '" + orchardName(stop.getOrchardId())
+                            + "' is already in the confirmed tour '" + other.getTitle() + "'.");
+                }
+            }
+        }
+    }
+
+    // Requests were approved when added to the draft, but may have changed since
+    private void validateRequestsStillApproved(CollectionTour tour) {
+        Map<String, HarvestRequest> requests = harvestRequestRepository
+                .findAllById(tour.getStops().stream().map(TourStop::getHarvestRequestId).toList()).stream()
+                .collect(Collectors.toMap(HarvestRequest::getId, Function.identity()));
+        for (TourStop stop : tour.getStops()) {
+            HarvestRequest request = requests.get(stop.getHarvestRequestId());
+            if (request == null) {
+                throw new IllegalStateException("Cannot confirm: harvest request " + stop.getHarvestRequestId()
+                        + " no longer exists.");
+            }
+            if (request.getStatus() != HarvestRequestStatus.APPROVED) {
+                throw new IllegalStateException("Cannot confirm: the harvest request for orchard '"
+                        + orchardName(stop.getOrchardId()) + "' is " + request.getStatus() + ", not APPROVED.");
+            }
+        }
+    }
+
+    private String orchardName(String orchardId) {
+        return orchardRepository.findById(orchardId).map(Orchard::getName).orElse(orchardId);
+    }
+
+    // Not part of validatePlannedTourConstraints: a draft whose leader became busy must stay editable
+    private void validateTeamLeaderAvailable(CollectionTour tour) {
+        validateTeamLeaderAvailable(tour, tourRepository.findByStatusIn(RESOURCE_LOCKED_STATUSES));
+    }
+
+    private void validateTeamLeaderAvailable(CollectionTour tour, List<CollectionTour> locked) {
+        Instant[] window = resolveTourWindow(tour);
+        boolean busy = findOverlappingTours(tour.getId(), window[0], window[1], locked).stream()
+                .anyMatch(other -> tour.getTeamLeaderId().equals(other.getTeamLeaderId()));
+        if (busy) {
+            String name = userRepository.findById(tour.getTeamLeaderId())
+                    .map(User::getFullName)
+                    .orElse(tour.getTeamLeaderId());
+            throw new IllegalStateException("Team leader '" + name + "' is already assigned to an overlapping tour.");
+        }
+    }
+
     private void validatePlannedTourConstraints(CollectionTour tour) {
         validateAndResolveTeamLeader(tour.getTeamLeaderId());
 
@@ -368,33 +517,7 @@ public class CollectionTourService {
         }
 
         List<String> equipmentIds = tour.getAssignedEquipmentIds() != null ? tour.getAssignedEquipmentIds() : List.of();
-        List<Equipment> assignedEquipment = new ArrayList<>();
-        Set<String> assignedTypes = new HashSet<>();
-        for (String eqId : equipmentIds) {
-            Equipment eq = equipmentService.findEquipment(eqId);
-            assignedEquipment.add(eq);
-            if (eq.getType() != null && !eq.getType().isBlank()) {
-                assignedTypes.add(eq.getType().trim().toUpperCase());
-            }
-        }
-
-        Set<String> requiredTypes = equipmentService.getEquipment(null, true).stream()
-                .map(EquipmentResponse::getType)
-                .filter(t -> t != null && !t.isBlank())
-                .map(t -> t.trim().toUpperCase())
-                .collect(Collectors.toSet());
-
-        if (!requiredTypes.isEmpty()) {
-            List<String> missingTypes = requiredTypes.stream()
-                    .filter(type -> !assignedTypes.contains(type))
-                    .sorted()
-                    .toList();
-            if (!missingTypes.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "A PLANNED tour must include at least one equipment item from every type. Missing types: "
-                                + String.join(", ", missingTypes));
-            }
-        }
+        Collection<Equipment> assignedEquipment = loadEquipment(equipmentIds).values();
 
         double estimatedHarvestKg = tour.getTotalQuantityKg();
         long totalBinCapacityKg = assignedEquipment.stream()
@@ -407,7 +530,11 @@ public class CollectionTourService {
                     "Insufficient bin capacity (" + totalBinCapacityKg + " kg) for estimated harvest quantity ("
                             + estimatedHarvestKg + " kg).");
         }
+    }
 
+    // Not checked on draft edits: stops and drop-offs are saved by two calls, so a draft is unequal between them
+    private void validateAllocationMatchesHarvest(CollectionTour tour) {
+        double estimatedHarvestKg = tour.getTotalQuantityKg();
         double totalAllocatedKg = tour.getTotalAllocatedQuantityKg();
         if (Math.abs(totalAllocatedKg - estimatedHarvestKg) > QUANTITY_EPSILON) {
             throw new IllegalArgumentException(
@@ -514,6 +641,11 @@ public class CollectionTourService {
     }
 
     private void validateResourcesForWindow(CollectionTour tour, List<String> workerIds, List<String> equipmentIds) {
+        validateResourcesForWindow(tour, workerIds, equipmentIds, tourRepository.findByStatusIn(RESOURCE_LOCKED_STATUSES));
+    }
+
+    private void validateResourcesForWindow(CollectionTour tour, List<String> workerIds, List<String> equipmentIds,
+                                            List<CollectionTour> locked) {
         Instant[] window = resolveTourWindow(tour);
         Instant start = window[0];
         Instant end = window[1];
@@ -545,7 +677,10 @@ public class CollectionTourService {
 
         Set<String> bookedWorkerIds = new HashSet<>();
         Set<String> bookedEquipmentIds = new HashSet<>();
-        collectBookedResourcesFromOverlappingTours(tour.getId(), start, end, bookedWorkerIds, bookedEquipmentIds);
+        for (CollectionTour other : findOverlappingTours(tour.getId(), start, end, locked)) {
+            bookedWorkerIds.addAll(orEmpty(other.getAssignedWorkerIds()));
+            bookedEquipmentIds.addAll(orEmpty(other.getAssignedEquipmentIds()));
+        }
 
         for (String workerId : workerIds) {
             if (bookedWorkerIds.contains(workerId)) {
@@ -564,27 +699,35 @@ public class CollectionTourService {
                                                            Instant end,
                                                            Set<String> bookedWorkerIds,
                                                            Set<String> bookedEquipmentIds) {
-        List<CollectionTour> overlappingTours = tourRepository.findByStatusIn(CONFLICT_CHECK_STATUSES);
-        for (CollectionTour other : overlappingTours) {
-            if (currentTourId != null && currentTourId.equals(other.getId())) {
-                continue;
+        for (CollectionTour other : findOverlappingTours(currentTourId, start, end)) {
+            if (other.getAssignedWorkerIds() != null) {
+                bookedWorkerIds.addAll(other.getAssignedWorkerIds());
             }
-            Instant[] otherWindow = resolveTourWindow(other);
-            Instant otherStart = otherWindow[0];
-            Instant otherEnd = otherWindow[1];
-
-            if (start.isBefore(otherEnd) && end.isAfter(otherStart)) {
-                if (other.getAssignedWorkerIds() != null) {
-                    bookedWorkerIds.addAll(other.getAssignedWorkerIds());
-                }
-                if (other.getAssignedEquipmentIds() != null) {
-                    bookedEquipmentIds.addAll(other.getAssignedEquipmentIds());
-                }
+            if (other.getAssignedEquipmentIds() != null) {
+                bookedEquipmentIds.addAll(other.getAssignedEquipmentIds());
             }
         }
     }
 
-    private Instant[] resolveTourWindow(CollectionTour tour) {
+    // Only confirmed / in-progress tours reserve resources (#42, #43): a draft never blocks another plan,
+    // and the first tour to be confirmed wins (confirmTour re-checks).
+    private List<CollectionTour> findOverlappingTours(String excludeTourId, Instant start, Instant end) {
+        return findOverlappingTours(excludeTourId, start, end, tourRepository.findByStatusIn(RESOURCE_LOCKED_STATUSES));
+    }
+
+    private static List<CollectionTour> findOverlappingTours(String excludeTourId, Instant start, Instant end,
+                                                            List<CollectionTour> locked) {
+        return locked.stream()
+                .filter(other -> excludeTourId == null || !excludeTourId.equals(other.getId()))
+                .filter(other -> {
+                    Instant[] window = resolveTourWindow(other);
+                    return start.isBefore(window[1]) && end.isAfter(window[0]);
+                })
+                .toList();
+    }
+
+    // Package-visible so the resource calendar (#27) uses the same tour window as conflict checks
+    static Instant[] resolveTourWindow(CollectionTour tour) {
         Instant start = tour.getPlannedStartTime() != null ? tour.getPlannedStartTime() : Instant.now();
         Instant end = tour.getEstimatedEndTime() != null && tour.getEstimatedEndTime().isAfter(start)
                 ? tour.getEstimatedEndTime()
@@ -597,6 +740,41 @@ public class CollectionTourService {
         if (seen.size() != ids.size()) {
             throw new IllegalArgumentException("Duplicate " + resourceLabel + " IDs are not allowed in a tour.");
         }
+    }
+
+    // Assigned workers/equipment are returned with their details, so clients need no access to the logistics API
+    private CollectionTourResponse toResponse(CollectionTour tour) {
+        return toResponses(List.of(tour)).get(0);
+    }
+
+    // Leaders, workers and equipment are each loaded once for all the tours: a query per tour made lists take seconds
+    private List<CollectionTourResponse> toResponses(List<CollectionTour> tours) {
+        Map<String, User> leaders = loadById(userRepository, tours.stream().map(CollectionTour::getTeamLeaderId), User::getId);
+        Map<String, Worker> workers = loadById(workerRepository,
+                tours.stream().flatMap(tour -> orEmpty(tour.getAssignedWorkerIds()).stream()), Worker::getId);
+        Map<String, Equipment> equipment = loadById(equipmentRepository,
+                tours.stream().flatMap(tour -> orEmpty(tour.getAssignedEquipmentIds()).stream()), Equipment::getId);
+
+        return tours.stream().map(tour -> {
+            CollectionTourResponse response = CollectionTourResponse.fromEntity(tour);
+            User leader = tour.getTeamLeaderId() != null ? leaders.get(tour.getTeamLeaderId()) : null;
+            response.setTeamLeaderName(leader != null ? leader.getFullName() : null);
+            response.setAssignedWorkers(orEmpty(tour.getAssignedWorkerIds()).stream()
+                    .map(workers::get).filter(Objects::nonNull).map(WorkerResponse::fromEntity).toList());
+            response.setAssignedEquipment(orEmpty(tour.getAssignedEquipmentIds()).stream()
+                    .map(equipment::get).filter(Objects::nonNull).map(EquipmentResponse::fromEntity).toList());
+            return response;
+        }).toList();
+    }
+
+    private static <T> Map<String, T> loadById(MongoRepository<T, String> repository, Stream<String> ids, Function<T, String> id) {
+        List<String> wanted = ids.filter(Objects::nonNull).distinct().toList();
+        return wanted.isEmpty() ? Map.of()
+                : repository.findAllById(wanted).stream().collect(Collectors.toMap(id, Function.identity()));
+    }
+
+    private static List<String> orEmpty(List<String> ids) {
+        return ids != null ? ids : List.of();
     }
 
     public CollectionTour findTour(String tourId) {
@@ -670,6 +848,24 @@ public class CollectionTourService {
             return new ArrayList<>();
         }
 
+        Map<String, Double> requestedPerMill = new HashMap<>();
+        for (CreateCollectionTourRequest.OilMillDropOffInput input : inputs) {
+            requestedPerMill.merge(input.getOilMillId(), input.getAllocatedQuantityKg(), Double::sum);
+        }
+        checkMillCapacity(requestedPerMill, plannedStartTime, excludeTourId);
+
+        List<OilMillDropOff> dropOffs = new ArrayList<>();
+        for (CreateCollectionTourRequest.OilMillDropOffInput input : inputs) {
+            OilMillDropOff dropOff = new OilMillDropOff();
+            dropOff.setOilMillId(input.getOilMillId());
+            dropOff.setAllocatedQuantityKg(input.getAllocatedQuantityKg());
+            dropOffs.add(dropOff);
+        }
+        return dropOffs;
+    }
+
+    // Each mill must be active and keep enough daily capacity. requestedPerMill: { millId: kg }
+    private void checkMillCapacity(Map<String, Double> requestedPerMill, Instant plannedStartTime, String excludeTourId) {
         LocalDate tourDay = (plannedStartTime != null ? plannedStartTime : Instant.now())
                 .atZone(ZoneOffset.UTC)
                 .toLocalDate();
@@ -677,16 +873,12 @@ public class CollectionTourService {
         Instant dayEnd = tourDay.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
 
         List<CollectionTour> activeCapacityTours = tourRepository.findByStatusIn(CAPACITY_RESERVED_STATUSES);
-
-        Map<String, Double> requestedPerMill = new HashMap<>();
-        for (CreateCollectionTourRequest.OilMillDropOffInput input : inputs) {
-            requestedPerMill.merge(input.getOilMillId(), input.getAllocatedQuantityKg(), Double::sum);
-        }
+        Map<String, OilMill> mills = oilMillService.findOilMills(requestedPerMill.keySet());
 
         for (Map.Entry<String, Double> entry : requestedPerMill.entrySet()) {
             String millId = entry.getKey();
             double totalRequestedForMill = entry.getValue();
-            OilMill mill = oilMillService.findOilMill(millId);
+            OilMill mill = mills.get(millId);
             if (!mill.isActive()) {
                 throw new IllegalArgumentException("Oil mill is inactive: " + mill.getName());
             }
@@ -708,15 +900,6 @@ public class CollectionTourService {
                         + mill.getDailyCapacityKg() + " kg");
             }
         }
-
-        List<OilMillDropOff> dropOffs = new ArrayList<>();
-        for (CreateCollectionTourRequest.OilMillDropOffInput input : inputs) {
-            OilMillDropOff dropOff = new OilMillDropOff();
-            dropOff.setOilMillId(input.getOilMillId());
-            dropOff.setAllocatedQuantityKg(input.getAllocatedQuantityKg());
-            dropOffs.add(dropOff);
-        }
-        return dropOffs;
     }
 
     public void recomputeTotals(CollectionTour tour) {

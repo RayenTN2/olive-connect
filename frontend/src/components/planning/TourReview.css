@@ -1,0 +1,20 @@
+.review h1, .step-name { overflow-wrap: anywhere; }
+.review h1 { margin: 8px 0 4px; font-size: 22px; line-height: 1.25; font-weight: 600; letter-spacing: -.02em; }
+.review h1:focus { outline: 0; }
+.review .back { text-decoration: none; margin: -6px 0 0 -10px; }
+.review h2 { margin: 24px 0 6px; font-size: 15px; font-weight: 600; }
+.review-note { margin-top: 10px; font-size: 13px; }
+.steps { padding: 0; list-style: none; }
+.steps li { display: flex; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.step-name { font-weight: 500; }
+.step-mill { flex: none; margin-right: 10px; }
+.review .builder-head { gap: 12px; }
+.review .builder-head .tour-status { margin-right: 4px; }
+.review .builder-foot > .button-quiet { justify-self: start; margin-left: -10px; }
+.review .builder-foot .leaving .field { width: 100%; margin: 0; }
+.review .builder-foot [aria-disabled=true].button-quiet { color: var(--edge); cursor: default; }
+.review .builder-foot:empty { display: none; }
+.review .builder-foot { border-block: 1px solid var(--line); padding-block: 12px; }
+.review .builder-foot .button { width: auto; justify-self: start; }
+.steps li { padding-inline: 8px; margin-inline: -8px; border-radius: 0; }
+.steps .chosen { background: var(--wash); box-shadow: inset 0 0 0 2px var(--olive); border-radius: 12px; }

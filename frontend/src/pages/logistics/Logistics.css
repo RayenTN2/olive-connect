@@ -1,0 +1,71 @@
+:is(.tour-status.AVAILABLE, .count-card.AVAILABLE) { background: var(--green-tint); color: var(--green); }
+:is(.tour-status.IN_USE, .count-card.IN_USE, .count-card.TOUR) { background: var(--blue-tint); color: var(--blue-ink); }
+:is(.tour-status.UNAVAILABLE, .count-card.UNAVAILABLE) { background: var(--amber-tint); color: var(--amber); }
+:is(.tour-status.UNDER_MAINTENANCE, .count-card.UNDER_MAINTENANCE, .count-card.MAINTENANCE) { background: #efe6f3; color: #5f3377; }
+.count-card.INACTIVE { background: var(--grey-tint); color: var(--soft); }
+.page-head a.button { display: inline-flex; align-items: center; text-decoration: none; }
+.resource-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+.resource-head h1 { font-size: 34px; font-weight: 600; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.resource-head h1:focus { outline: 0; }
+.resource-head .button-quiet { margin-left: auto; }
+.resource-notice, .period-notice { color: var(--green); font-size: 14px; }
+.resource-notice { min-height: 21px; }
+.resource-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px -10px 0; }
+.resource-actions :is(.leaving, .urgent) { margin: 0 10px; width: 100%; }
+.block .leaving { margin: 10px 0 4px; }
+.block .urgent { margin-bottom: 8px; font-size: 14px; }
+.logistics-form { max-width: 620px; margin-top: 18px; }
+.block .logistics-form { margin-top: 0; }
+:is(.logistics-form, .period-form) { font-size: 14px; }
+:is(.logistics-form, .period-form) :is(input, select, textarea) { width: 100%; min-width: 0; min-height: 40px; padding: 8px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 400; line-height: 20px; }
+:is(.logistics-form, .period-form) textarea { resize: vertical; }
+:is(.logistics-form, .period-form) :is(input, select, textarea):focus-visible { outline: 0; border-color: var(--olive); box-shadow: 0 0 0 1px var(--olive), 0 0 0 4px var(--olive-ring); }
+:is(.logistics-form, .period-form) [aria-invalid] { border-color: var(--danger); }
+:is(.logistics-form, .period-form) .field { align-content: start; min-width: 0; }
+:is(.logistics-form, .period-form) .field-pair { align-items: start; }
+.form-buttons { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.form-buttons .button { height: 42px; font-size: 15px; }
+.period-form { margin: 8px 0 16px; padding: 16px; border-radius: 16px; background: var(--wash); }
+.period-form .field-pair { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 12px; }
+.periods { padding: 0; list-style: none; font-size: 14px; }
+.periods li { padding: 12px 0; border-top: 1px solid var(--line); }
+.periods .period { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.period-main { flex: 1; min-width: 190px; display: grid; overflow-wrap: anywhere; }
+.period-dates { font-weight: 600; }
+.period-actions { display: flex; gap: 4px; margin: 2px -10px -6px; }
+.past-toggle { margin: 6px -10px 0; }
+
+.types { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.types li { padding: 4px 12px; border-radius: 20px; background: var(--wash); font-size: 14px; overflow-wrap: anywhere; }
+.type-block { max-width: 620px; margin-top: 24px; }
+.type-block .logistics-form { display: flex; align-items: start; gap: 10px; margin-top: 16px; }
+.type-block form .field { flex: 1; margin: 0; }
+.type-block form .button { height: 40px; margin-top: 27px; font-size: 14px; }
+
+.week-nav { display: flex; align-items: center; gap: 4px; }
+.week-nav strong { min-width: 200px; text-align: center; font-weight: 600; }
+.calendar { overflow-x: auto; border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); }
+.calendar table { width: 100%; min-width: 840px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 13px; }
+.calendar :is(th, td) { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.calendar tr:last-child > * { border-bottom: 0; }
+.calendar thead th { border-bottom: 1px solid var(--line); color: var(--soft); font-weight: 600; }
+.calendar thead .today { color: var(--olive); }
+.calendar td.today { background: var(--wash); }
+.calendar tr > :first-child { width: 170px; padding-left: 18px; }
+.calendar tbody th { font-weight: 500; }
+.calendar tbody th a { color: var(--ink); text-decoration: none; }
+.calendar tbody th a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.calendar tbody th .muted { display: block; font-weight: 400; }
+.entry { display: block; margin-bottom: 4px; padding: 5px 8px; border-radius: 10px; background: var(--blue-tint); color: var(--blue-ink); line-height: 1.35; }
+.entry:last-child { margin-bottom: 0; }
+.entry.UNAVAILABLE { background: var(--amber-tint); color: var(--amber); }
+.entry.MAINTENANCE { background: #efe6f3; color: #5f3377; }
+.entry.COMPLETED { background: var(--grey-tint); color: var(--soft); }
+.entry b { display: block; font-weight: 600; }
+.logistics-form > .urgent { margin-bottom: 12px; }
+@media (max-width: 1279px) {
+  .calendar table { font-size: 12px; }
+  .calendar tr > :first-child { width: 132px; padding-left: 14px; }
+  .calendar :is(th, td) { padding-inline: 4px; }
+  .entry { padding-inline: 6px; hyphens: auto; }
+}

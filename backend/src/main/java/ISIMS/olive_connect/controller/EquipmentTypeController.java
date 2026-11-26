@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/logistics/equipment/types")
-@PreAuthorize("hasRole('LOGISTICS_MANAGER')")
+@PreAuthorize("hasAnyRole('LOGISTICS_MANAGER', 'ADMIN')")
 public class EquipmentTypeController {
 
     private final EquipmentTypeService equipmentTypeService;

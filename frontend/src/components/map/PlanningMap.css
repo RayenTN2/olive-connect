@@ -1,0 +1,40 @@
+/* isolation keeps Leaflet's large z-indexes inside the map */
+/* --left and --right: the floating panels, which the controls must avoid */
+.map { --left: 124px; --right: 16px; position: absolute; inset: 0; isolation: isolate; }
+.map-canvas { position: absolute; inset: 0; background: #e9efe2; font-family: inherit; }
+.map-tiles { filter: saturate(.5) brightness(1.05); }
+
+.orchard-marker, .mill-marker { display: grid; place-items: center; border-radius: 50%; }
+.mill-marker { border-radius: 11px; }
+.orchard-marker svg, .mill-marker svg { filter: drop-shadow(0 1px 2px rgb(28 29 27 / .35)); transition: transform .15s var(--ease); }
+.orchard-marker.highlighted svg, .orchard-marker:hover svg, .mill-marker.highlighted svg, .mill-marker:hover svg { transform: scale(1.2); }
+.mill-marker.highlighted { box-shadow: 0 0 0 3px var(--blue), 0 0 0 7px rgb(47 111 181 / .22); background: #fff; }
+:is(.orchard-marker, .mill-marker).selected { box-shadow: 0 0 0 3px var(--olive), 0 0 0 7px var(--olive-ring); background: #fff; }
+:is(.orchard-marker, .mill-marker):focus-visible { outline: 3px solid var(--olive); outline-offset: 2px; }
+
+.map .leaflet-tooltip { padding: 10px 14px; border: 0; border-radius: 14px; color: var(--soft); font-size: 13px; line-height: 1.4; box-shadow: var(--shadow); }
+.map .leaflet-tooltip strong { color: var(--ink); font-weight: 600; }
+.map .leaflet-right { right: var(--right); }
+.map .leaflet-top .leaflet-control { margin: 16px 0 0; }
+.map .leaflet-bar { border: 0; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+.map .leaflet-bar a { width: 36px; height: 36px; line-height: 36px; color: var(--ink); }
+.map .leaflet-control-attribution { font-size: 11px; color: var(--soft); }
+.map .leaflet-control-attribution a { color: var(--soft); }
+
+.map-views { position: absolute; z-index: 1000; top: 16px; right: calc(var(--right) + 52px); display: flex; border-radius: 14px; background: var(--surface); overflow: hidden; box-shadow: var(--shadow); }
+.map-views button { height: 36px; padding: 0 12px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.map-views button + button { border-left: 1px solid var(--line); }
+.map-views button:hover { background: var(--wash); }
+.map-views button:disabled { color: var(--edge); cursor: default; }
+.map-views button:focus-visible, .legend-toggle:focus-visible { outline-offset: -2px; border-radius: 15px; }
+.map-notices { position: absolute; z-index: 1000; top: 64px; left: var(--left); right: var(--right); display: grid; gap: 8px; max-width: 300px; }
+.map-notices:empty { display: none; }
+.map-notice .button-quiet { margin-top: 6px; border-color: var(--edge); }
+.map-notice { padding: 12px 16px; border-radius: 16px; box-shadow: var(--shadow); background: var(--surface); font-size: 13px; }
+
+.legend { position: absolute; z-index: 1000; left: var(--left); bottom: 16px; border-radius: 16px; background: var(--surface); font-size: 13px; box-shadow: var(--shadow); }
+.legend-toggle { width: 100%; height: 34px; padding: 0 12px; border: 0; border-radius: 16px; background: none; color: var(--ink); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.legend-body { display: flex; gap: 24px; padding: 2px 14px 12px 12px; color: var(--soft); }
+.legend ul { padding: 0; list-style: none; display: grid; gap: 5px; align-content: start; }
+.legend li { display: flex; align-items: center; gap: 8px; }
+.legend i, .maturity i { width: 10px; height: 10px; border-radius: 50%; }
