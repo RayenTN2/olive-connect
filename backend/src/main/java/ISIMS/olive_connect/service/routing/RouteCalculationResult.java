@@ -14,6 +14,9 @@ public class RouteCalculationResult {
     private double totalDistanceKm;
     private long totalDurationMinutes;
 
+    // true = straight lines, because the routing service gave no usable answer
+    private boolean estimated;
+
     public List<double[]> getGeometryPoints() {
         return geometryPoints;
     }
@@ -28,6 +31,14 @@ public class RouteCalculationResult {
 
     public void setLegs(List<RouteLeg> legs) {
         this.legs = legs;
+    }
+
+    public boolean isEstimated() {
+        return estimated;
+    }
+
+    public void setEstimated(boolean estimated) {
+        this.estimated = estimated;
     }
 
     public double getTotalDistanceKm() {

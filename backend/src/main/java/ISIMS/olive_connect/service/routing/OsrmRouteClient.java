@@ -1,25 +1,44 @@
 package ISIMS.olive_connect.service.routing;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode; // Jackson 3: the one Spring Boot 4 reads HTTP answers with
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 
 @Component
 public class OsrmRouteClient {
 
+    private static final Logger log = LoggerFactory.getLogger(OsrmRouteClient.class);
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
     private static final double ROAD_FACTOR = 1.25;
     private static final double ASSUMED_SPEED_KMH = 45.0;
 
     private final RestClient restClient;
     private final String baseUrl;
 
-    public OsrmRouteClient(@Value("${olive.routing.osrm-base-url:http://router.project-osrm.org}") String baseUrl) {
+    @Autowired
+    public OsrmRouteClient(@Value("${olive.routing.osrm-base-url:https://router.project-osrm.org}") String baseUrl) {
+        this(baseUrl, CONNECT_TIMEOUT, READ_TIMEOUT);
+    }
+
+    // Package-visible so tests don't wait for the real timeouts
+    OsrmRouteClient(String baseUrl, Duration connectTimeout, Duration readTimeout) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        this.restClient = RestClient.create();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().connectTimeout(connectTimeout).build());
+        requestFactory.setReadTimeout(readTimeout);
+        requestFactory.enableCompression(false); // OSRM's "deflate" answers fail with "incorrect header check"
+        this.restClient = RestClient.builder().requestFactory(requestFactory).build();
     }
 
     public RouteCalculationResult calculateRoute(List<GeoPoint> waypoints) {
@@ -35,6 +54,7 @@ public class OsrmRouteClient {
         try {
             return queryOsrm(waypoints);
         } catch (Exception ex) {
+            log.warn("OSRM route unavailable, using a straight-line estimate: {}", ex.toString());
             return fallbackHaversineRoute(waypoints);
         }
     }
@@ -52,7 +72,7 @@ public class OsrmRouteClient {
         String url = baseUrl + "/route/v1/driving/" + coords + "?overview=full&geometries=geojson&steps=false";
         JsonNode root = restClient.get().uri(url).retrieve().body(JsonNode.class);
 
-        if (root == null || !"Ok".equalsIgnoreCase(root.path("code").asText())) {
+        if (root == null || !"Ok".equalsIgnoreCase(root.path("code").asString())) {
             throw new IllegalStateException("OSRM returned non-Ok response");
         }
 
@@ -72,6 +92,10 @@ public class OsrmRouteClient {
             }
         }
 
+        if (result.getGeometryPoints().size() < 2) {
+            throw new IllegalStateException("OSRM returned no route geometry");
+        }
+
         JsonNode legsNode = routeNode.path("legs");
         double totalKm = 0.0;
         long totalMinutes = 0L;
@@ -86,6 +110,10 @@ public class OsrmRouteClient {
             }
         }
 
+        if (result.getLegs().size() != waypoints.size() - 1) {
+            throw new IllegalStateException("OSRM returned " + result.getLegs().size() + " legs for " + waypoints.size() + " points");
+        }
+
         result.setTotalDistanceKm(round2(totalKm));
         result.setTotalDurationMinutes(totalMinutes);
         return result;
@@ -93,6 +121,7 @@ public class OsrmRouteClient {
 
     private RouteCalculationResult fallbackHaversineRoute(List<GeoPoint> waypoints) {
         RouteCalculationResult result = new RouteCalculationResult();
+        result.setEstimated(true);
         double totalKm = 0.0;
         long totalMinutes = 0L;
 

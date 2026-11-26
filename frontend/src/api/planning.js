@@ -1,0 +1,30 @@
+import { request } from '../auth/api.js'
+
+export const getOrchards = () => request('/api/orchards/map')
+export const getHarvestRequests = () => request('/api/harvest-requests?sortBy=PRIORITY')
+export const getMaturityHistory = (orchardId) => request(`/api/maturity-reports/orchard/${encodeURIComponent(orchardId)}`)
+export const getProblems = (orchardId) => request(`/api/problem-reports?orchardId=${encodeURIComponent(orchardId)}`)
+
+const period = (start, end) => new URLSearchParams({ start, end })
+export const getAvailableWorkers = (start, end) => request(`/api/collection/resources/workers?${period(start, end)}`)
+export const getAvailableEquipment = (start, end) => request(`/api/collection/resources/equipment?${period(start, end)}`)
+export const getActiveOilMills = () => request('/api/oil-mills?active=true')
+export const getAvailableTeamLeaders = (start, end) => request(`/api/collection/resources/team-leaders?${period(start, end)}`)
+
+export const createTour = (body) => request('/api/collection-tours', { method: 'POST', body })
+export const getDraftTours = () => request('/api/collection-tours?status=PLANNED')
+export const deleteTour = (id) => request(`/api/collection-tours/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const getTours = () => request('/api/collection-tours')
+const tourPath = (id) => `/api/collection-tours/${encodeURIComponent(id)}`
+export const getTour = (id) => request(tourPath(id))
+export const confirmTour = (id) => request(`${tourPath(id)}/confirm`, { method: 'POST' })
+export const cancelTour = (id, reason) => request(`${tourPath(id)}/cancel`, { method: 'POST', body: { reason } })
+export const changeTeamLeader = (id, teamLeaderId) => request(`${tourPath(id)}/team-leader`, { method: 'PATCH', body: { teamLeaderId } })
+export const getHarvestRequest = (id) => request(`/api/harvest-requests/${encodeURIComponent(id)}`)
+export const reviewHarvestRequest = (id, accepted, comment) => request(`/api/harvest-requests/${encodeURIComponent(id)}/review`, { method: 'PATCH', body: { accepted, comment } })
+export const getAllProblems = () => request('/api/problem-reports')
+export const getProblem = (id) => request(`/api/problem-reports/${encodeURIComponent(id)}`)
+export const updateProblemStatus = (id, status) => request(`/api/problem-reports/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status } })
+export const getAllMaturityReports = () => request('/api/maturity-reports')
+export const getOilMills = () => request('/api/oil-mills')
+export const getOilMill = (id) => request(`/api/oil-mills/${encodeURIComponent(id)}`)

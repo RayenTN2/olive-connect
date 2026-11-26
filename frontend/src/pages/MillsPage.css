@@ -1,0 +1,14 @@
+.mills-page { min-height: 0; }
+.mills-page .page { left: 124px; width: 560px; padding: 24px; overflow-y: auto; }
+.mills-page .map { --left: 700px; }
+@media (max-width: 1279px) { .mills-page .page { width: 500px; } .mills-page .map { --left: 640px; } }
+.mills-page .tour-tools input[type=search] { width: 200px; }
+.mill-address { display: block; font-size: 13px; }
+.mill-day { max-width: 220px; margin: 18px 0 6px; }
+.mill-left { font-size: 26px; font-weight: 600; }
+.mill-tours { padding: 0; list-style: none; }
+.mill-tours li { border-bottom: 1px solid var(--line); }
+.mill-tours a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 8px; margin: 0 -8px; border-radius: 12px; color: inherit; text-decoration: none; }
+.mill-tours a:hover { background: var(--wash); }
+.mill-tour { display: grid; font-weight: 500; overflow-wrap: anywhere; }
+.mill-tour .muted { font-size: 13px; font-weight: 400; }

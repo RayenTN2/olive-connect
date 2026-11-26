@@ -64,7 +64,6 @@ class ResourceCalendarControllerTest {
         ResourceCalendarResponse.Entry entry = new ResourceCalendarResponse.Entry();
         entry.setKind(ResourceCalendarResponse.EntryKind.TOUR);
         entry.setTourId("A");
-        entry.setConflict(true);
         row.setEntries(List.of(entry));
         when(calendarService.getCalendar(Instant.parse(START), Instant.parse(END))).thenReturn(List.of(row));
 
@@ -72,8 +71,7 @@ class ResourceCalendarControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].resourceType").value("WORKER"))
                 .andExpect(jsonPath("$[0].entries[0].kind").value("TOUR"))
-                .andExpect(jsonPath("$[0].entries[0].tourId").value("A"))
-                .andExpect(jsonPath("$[0].entries[0].conflict").value(true));
+                .andExpect(jsonPath("$[0].entries[0].tourId").value("A"));
     }
 
     @Test

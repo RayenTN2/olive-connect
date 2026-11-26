@@ -65,24 +65,6 @@ public class ResourceCalendarService {
         Map<String, List<Entry>> equipmentEntries = new HashMap<>();
         collect(tours, start, end, workerEntries, equipmentEntries);
 
-        // A visible entry may extend past the range and clash with an entry outside it: reload over the
-        // span of all visible entries so its conflict flag doesn't depend on the range chosen
-        Instant wideStart = start;
-        Instant wideEnd = end;
-        for (Map<String, List<Entry>> map : List.of(workerEntries, equipmentEntries)) {
-            for (List<Entry> entries : map.values()) {
-                for (Entry entry : entries) {
-                    if (entry.getStart().isBefore(wideStart)) wideStart = entry.getStart();
-                    if (entry.getEnd().isAfter(wideEnd)) wideEnd = entry.getEnd();
-                }
-            }
-        }
-        if (!wideStart.equals(start) || !wideEnd.equals(end)) {
-            workerEntries.clear();
-            equipmentEntries.clear();
-            collect(tours, wideStart, wideEnd, workerEntries, equipmentEntries);
-        }
-
         List<ResourceCalendarResponse> calendar = new ArrayList<>();
         for (Worker worker : workerRepository.findAll()) {
             ResourceCalendarResponse row = new ResourceCalendarResponse();
@@ -90,7 +72,7 @@ public class ResourceCalendarService {
             row.setId(worker.getId());
             row.setName(worker.getFullName());
             row.setActive(worker.isActive());
-            row.setEntries(finish(workerEntries.get(worker.getId()), start, end));
+            row.setEntries(sorted(workerEntries.get(worker.getId())));
             calendar.add(row);
         }
         for (Equipment equipment : equipmentRepository.findAll()) {
@@ -101,7 +83,7 @@ public class ResourceCalendarService {
             row.setReference(equipment.getReference());
             row.setEquipmentType(equipment.getType());
             row.setActive(equipment.isActive());
-            row.setEntries(finish(equipmentEntries.get(equipment.getId()), start, end));
+            row.setEntries(sorted(equipmentEntries.get(equipment.getId())));
             calendar.add(row);
         }
         return calendar;
@@ -134,24 +116,11 @@ public class ResourceCalendarService {
         }
     }
 
-    // Flags every entry that overlaps another entry of the same resource (any kind), then keeps those
-    // intersecting the requested range, sorted by start
-    private static List<Entry> finish(List<Entry> entries, Instant start, Instant end) {
+    private static List<Entry> sorted(List<Entry> entries) {
         if (entries == null) {
             return new ArrayList<>();
         }
-        for (int i = 0; i < entries.size(); i++) {
-            for (int j = i + 1; j < entries.size(); j++) {
-                Entry a = entries.get(i);
-                Entry b = entries.get(j);
-                if (overlaps(a.getStart(), a.getEnd(), b.getStart(), b.getEnd())) {
-                    a.setConflict(true);
-                    b.setConflict(true);
-                }
-            }
-        }
         return entries.stream()
-                .filter(entry -> overlaps(entry.getStart(), entry.getEnd(), start, end))
                 .sorted(Comparator.comparing(Entry::getStart))
                 .toList();
     }

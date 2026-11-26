@@ -1,6 +1,7 @@
 package ISIMS.olive_connect.controller;
 
 import ISIMS.olive_connect.dto.EquipmentResponse;
+import ISIMS.olive_connect.dto.TeamLeaderResponse;
 import ISIMS.olive_connect.dto.WorkerResponse;
 import ISIMS.olive_connect.service.CollectionTourService;
 import ISIMS.olive_connect.service.EquipmentTypeService;
@@ -36,6 +37,14 @@ public class ResourceAvailabilityController {
             @RequestParam Instant start,
             @RequestParam Instant end) {
         return ResponseEntity.ok(tourService.getAvailableWorkers(start, end, null));
+    }
+
+    // Active team leaders with no confirmed tour during the period
+    @GetMapping("/team-leaders")
+    public ResponseEntity<List<TeamLeaderResponse>> getAvailableTeamLeaders(
+            @RequestParam Instant start,
+            @RequestParam Instant end) {
+        return ResponseEntity.ok(tourService.getAvailableTeamLeaders(start, end));
     }
 
     // US-26: Active equipment free during the whole period, optionally of one type (?type=BIN)

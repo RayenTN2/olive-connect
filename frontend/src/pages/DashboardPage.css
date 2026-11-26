@@ -1,0 +1,36 @@
+.dash { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; gap: 20px; margin-top: 24px; }
+.dash-column { display: grid; gap: 20px; min-width: 0; }
+.block { min-width: 0; padding: 22px 26px 24px; border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); }
+.block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; margin-bottom: 6px; }
+.block h2 { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+.block h3 { margin: 16px 0 2px; font-size: 13px; font-weight: 600; color: var(--soft); }
+.block-head + h3 { margin-top: 0; }
+.block > .loading { padding: 8px 0 0; }
+.block > .button { height: 44px; margin-top: 18px; font-size: 15px; }
+.block-day input { height: 38px; padding: 0 10px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.block-day input:focus-visible { outline: 0; border-color: var(--olive); box-shadow: 0 0 0 1px var(--olive), 0 0 0 4px var(--olive-ring); }
+.block-note { margin-top: 12px; font-size: 13px; }
+.dash-date::first-letter { text-transform: uppercase; }
+
+.todos { padding: 8px 26px; border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); }
+.dash-todo { display: flex; align-items: center; gap: 16px; width: 100%; padding: 14px 0; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; line-height: 1.4; text-align: left; text-decoration: none; }
+.dash-todo:first-child { border-top: 0; }
+.dash-todo .count-number { flex: none; display: grid; place-items: center; min-width: 52px; height: 52px; padding: 0 8px; border-radius: 16px; background: var(--grey-tint); color: var(--soft); font-size: 23px; font-weight: 600; letter-spacing: -.03em; }
+.dash-todo.amber .count-number { background: var(--amber-tint); color: var(--amber); }
+.dash-todo.red .count-number { background: var(--danger-tint); color: #9c1f18; }
+.dash-todo.green .count-number { background: var(--sage); color: var(--grove); }
+.todo-text { flex: 1; min-width: 0; display: grid; font-weight: 600; }
+.todo-text .muted { font-weight: 400; font-size: 14px; }
+.dash-todo svg { flex: none; color: var(--soft); transition: transform .2s var(--ease); }
+:is(a, button).dash-todo { cursor: pointer; }
+:is(a, button).dash-todo:hover svg { transform: translateX(4px); }
+.todo-failed { color: var(--danger); font-weight: 400; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+
+.dash-tours { padding: 0; list-style: none; }
+.dash-tours li { border-top: 1px solid var(--line); }
+.dash-tours a { display: flex; align-items: center; gap: 18px; padding: 13px 10px; margin: 0 -10px; border-radius: 14px; color: inherit; line-height: 1.4; text-decoration: none; transition: background .2s; }
+.dash-tours a:hover { background: var(--wash); }
+.dash-time { flex: none; width: 48px; font-weight: 600; }
+.dash-name { flex: 1; min-width: 0; display: grid; font-weight: 600; overflow-wrap: anywhere; }
+.dash-name .muted { font-size: 14px; font-weight: 400; }
+@media (max-width: 1279px) { .dash { gap: 14px; } .block, .todos { padding-inline: 18px; } .block-head { flex-wrap: wrap; } }

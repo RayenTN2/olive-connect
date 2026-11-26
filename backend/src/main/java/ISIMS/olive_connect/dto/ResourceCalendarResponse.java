@@ -30,7 +30,6 @@ public class ResourceCalendarResponse {
         private String tourTitle;
         private CollectionTourStatus tourStatus;
         private String reason;
-        private boolean conflict;
 
         public EntryKind getKind() { return kind; }
         public void setKind(EntryKind kind) { this.kind = kind; }
@@ -52,9 +51,6 @@ public class ResourceCalendarResponse {
 
         public String getReason() { return reason; }
         public void setReason(String reason) { this.reason = reason; }
-
-        public boolean isConflict() { return conflict; }
-        public void setConflict(boolean conflict) { this.conflict = conflict; }
     }
 
     // Getters and Setters

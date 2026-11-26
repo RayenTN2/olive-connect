@@ -101,15 +101,13 @@ class ResourceCalendarServiceTest {
     }
 
     @Test
-    void tourOverlappingAnAbsence_bothEntriesAreConflicts() {
+    void tourOverlappingAnAbsence_bothEntriesAreListed() {
         givenTours(tour("A", "2026-11-25T07:00:00Z", "2026-11-25T12:00:00Z", List.of("w1"), List.of()));
         givenAbsences(absence("w1", "2026-11-25T10:00:00Z", "2026-11-25T18:00:00Z"));
 
         List<Entry> entries = entriesOf(service.getCalendar(START, END), "w1");
 
         assertEquals(List.of(EntryKind.TOUR, EntryKind.UNAVAILABLE), entries.stream().map(Entry::getKind).toList());
-        assertTrue(entries.get(0).isConflict());
-        assertTrue(entries.get(1).isConflict());
         assertEquals("A", entries.get(0).getTourId());
         assertEquals("Tour A", entries.get(0).getTourTitle());
         assertEquals(CollectionTourStatus.CONFIRMED, entries.get(0).getTourStatus());
@@ -117,7 +115,7 @@ class ResourceCalendarServiceTest {
     }
 
     @Test
-    void twoOverlappingToursOnTheSameWorker_areConflicts() {
+    void twoOverlappingToursOnTheSameWorker_areBothListed() {
         givenTours(tour("A", "2026-11-25T07:00:00Z", "2026-11-25T12:00:00Z", List.of("w1"), List.of()),
                 tour("B", "2026-11-25T11:00:00Z", "2026-11-25T15:00:00Z", List.of("w1"), List.of()));
         givenAbsences();
@@ -125,19 +123,6 @@ class ResourceCalendarServiceTest {
         List<Entry> entries = entriesOf(service.getCalendar(START, END), "w1");
 
         assertEquals(2, entries.size());
-        assertTrue(entries.stream().allMatch(Entry::isConflict));
-    }
-
-    @Test
-    void entriesTouchingAtTheirBoundary_areNotConflicts() {
-        givenTours(tour("A", "2026-11-25T07:00:00Z", "2026-11-25T12:00:00Z", List.of("w1"), List.of()),
-                tour("B", "2026-11-25T12:00:00Z", "2026-11-25T15:00:00Z", List.of("w1"), List.of()));
-        givenAbsences(absence("w1", "2026-11-25T15:00:00Z", "2026-11-25T20:00:00Z"));
-
-        List<Entry> entries = entriesOf(service.getCalendar(START, END), "w1");
-
-        assertEquals(3, entries.size());
-        assertTrue(entries.stream().noneMatch(Entry::isConflict));
     }
 
     @Test
@@ -153,20 +138,6 @@ class ResourceCalendarServiceTest {
         assertEquals(Instant.parse("2026-11-24T20:00:00Z"), entries.get(0).getStart());
         assertEquals(Instant.parse("2026-11-25T02:00:00Z"), entries.get(0).getEnd());
         assertEquals(Instant.parse("2026-11-27T00:00:00Z"), entries.get(1).getEnd());
-        // Hidden tours still count: A overlaps B, and the absence overlaps C
-        assertTrue(entries.stream().allMatch(Entry::isConflict));
-    }
-
-    @Test
-    void entryCrossingTheRangeStart_isFlaggedForAClashOutsideTheRange_whichItselfIsNotShown() {
-        givenTours(tour("A", "2026-11-24T20:00:00Z", "2026-11-25T02:00:00Z", List.of("w1"), List.of()));
-        givenAbsences(absence("w1", "2026-11-24T18:00:00Z", "2026-11-24T21:00:00Z")); // ends before the range
-
-        List<Entry> entries = entriesOf(service.getCalendar(START, END), "w1");
-
-        assertEquals(1, entries.size());
-        assertEquals("A", entries.get(0).getTourId());
-        assertTrue(entries.get(0).isConflict());
     }
 
     @Test
@@ -180,7 +151,7 @@ class ResourceCalendarServiceTest {
     }
 
     @Test
-    void inactiveResources_areListed_andInactivityIsNotAConflict() {
+    void inactiveResources_areListed_withTheirEntries() {
         Equipment bin = new Equipment();
         bin.setId("e1");
         bin.setName("Bin");
@@ -202,13 +173,11 @@ class ResourceCalendarServiceTest {
 
         assertEquals(List.of("w1", "w2", "e1"), calendar.stream().map(ResourceCalendarResponse::getId).toList());
         assertFalse(calendar.get(0).isActive());
-        assertFalse(entriesOf(calendar, "w1").get(0).isConflict());
         assertTrue(entriesOf(calendar, "w2").isEmpty());
         ResourceCalendarResponse binRow = calendar.get(2);
         assertEquals("BN-1", binRow.getReference());
         assertEquals("BIN", binRow.getEquipmentType());
         assertEquals(List.of(EntryKind.TOUR, EntryKind.MAINTENANCE), binRow.getEntries().stream().map(Entry::getKind).toList());
-        assertTrue(binRow.getEntries().stream().noneMatch(Entry::isConflict));
     }
 
     @Test

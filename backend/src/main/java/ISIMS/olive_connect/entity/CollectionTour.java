@@ -35,6 +35,7 @@ public class CollectionTour {
     private long totalTourDurationMinutes;
 
     private List<List<Double>> routeGeometry = new ArrayList<>();
+    private Boolean routeEstimated; // true = straight lines, false = real roads, null = tour saved before this was recorded
 
     private String createdBy;
     private Instant createdAt;
@@ -96,6 +97,9 @@ public class CollectionTour {
 
     public List<List<Double>> getRouteGeometry() { return routeGeometry; }
     public void setRouteGeometry(List<List<Double>> routeGeometry) { this.routeGeometry = routeGeometry; }
+
+    public Boolean getRouteEstimated() { return routeEstimated; }
+    public void setRouteEstimated(Boolean routeEstimated) { this.routeEstimated = routeEstimated; }
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }

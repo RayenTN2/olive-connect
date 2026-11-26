@@ -1,0 +1,8 @@
+.bars { display: grid; gap: 4px; padding: 0; list-style: none; font-size: 14px; }
+.bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 6px 8px; margin: 0 -8px; border-radius: 12px; color: inherit; text-decoration: none; }
+a.bar:hover { background: var(--wash); }
+.bar-label { overflow-wrap: anywhere; }
+.bar-text { font-weight: 500; white-space: nowrap; }
+.bar-track { grid-column: 1 / -1; height: 8px; background: var(--grey-tint); border-radius: 0 4px 4px 0; overflow: hidden; }
+.bar-track span { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+.bar-note { grid-column: 1 / -1; color: var(--soft); font-size: 13px; }

@@ -14,6 +14,7 @@ public class CollectionTourResponse {
     private String title;
     private String notes;
     private String teamLeaderId;
+    private String teamLeaderName;
     private CollectionTourStatus status;
     private Instant plannedStartTime;
     private Instant estimatedEndTime;
@@ -31,6 +32,7 @@ public class CollectionTourResponse {
     private long totalHarvestingDurationMinutes;
     private long totalTourDurationMinutes;
     private List<List<Double>> routeGeometry;
+    private Boolean routeEstimated;
     private String createdBy;
     private Instant createdAt;
     private Instant updatedAt;
@@ -58,6 +60,7 @@ public class CollectionTourResponse {
         res.setTotalHarvestingDurationMinutes(tour.getTotalHarvestingDurationMinutes());
         res.setTotalTourDurationMinutes(tour.getTotalTourDurationMinutes());
         res.setRouteGeometry(tour.getRouteGeometry());
+        res.setRouteEstimated(tour.getRouteEstimated());
         res.setCreatedBy(tour.getCreatedBy());
         res.setCreatedAt(tour.getCreatedAt());
         res.setUpdatedAt(tour.getUpdatedAt());
@@ -84,6 +87,9 @@ public class CollectionTourResponse {
 
     public String getTeamLeaderId() { return teamLeaderId; }
     public void setTeamLeaderId(String teamLeaderId) { this.teamLeaderId = teamLeaderId; }
+
+    public String getTeamLeaderName() { return teamLeaderName; }
+    public void setTeamLeaderName(String teamLeaderName) { this.teamLeaderName = teamLeaderName; }
 
     public CollectionTourStatus getStatus() { return status; }
     public void setStatus(CollectionTourStatus status) { this.status = status; }
@@ -126,6 +132,9 @@ public class CollectionTourResponse {
 
     public List<List<Double>> getRouteGeometry() { return routeGeometry; }
     public void setRouteGeometry(List<List<Double>> routeGeometry) { this.routeGeometry = routeGeometry; }
+
+    public Boolean getRouteEstimated() { return routeEstimated; }
+    public void setRouteEstimated(Boolean routeEstimated) { this.routeEstimated = routeEstimated; }
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }

@@ -1,6 +1,7 @@
 package ISIMS.olive_connect.controller;
 
 import ISIMS.olive_connect.dto.EquipmentResponse;
+import ISIMS.olive_connect.dto.TeamLeaderResponse;
 import ISIMS.olive_connect.dto.WorkerResponse;
 import ISIMS.olive_connect.repository.UserRepository;
 import ISIMS.olive_connect.security.AuthEntryPointJwt;
@@ -29,6 +30,7 @@ class ResourceAvailabilityControllerTest {
 
     private static final String WORKERS = "/api/collection/resources/workers";
     private static final String EQUIPMENT = "/api/collection/resources/equipment";
+    private static final String TEAM_LEADERS = "/api/collection/resources/team-leaders";
     private static final String START = "2026-11-25T08:00:00Z";
     private static final String END = "2026-11-25T17:00:00Z";
 
@@ -110,6 +112,50 @@ class ResourceAvailabilityControllerTest {
         mockMvc.perform(get(WORKERS).param("start", END).param("end", START))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Start time must be before end time."));
+    }
+
+    // --- team leaders ---
+
+    @Test
+    void teamLeaders_anonymous_isUnauthorized() throws Exception {
+        mockMvc.perform(get(TEAM_LEADERS).param("start", START).param("end", END)).andExpect(status().isUnauthorized());
+        verifyNoInteractions(tourService);
+    }
+
+    @Test
+    @WithMockUser(roles = "LOGISTICS_MANAGER")
+    void teamLeaders_logisticsManager_isForbidden() throws Exception {
+        mockMvc.perform(get(TEAM_LEADERS).param("start", START).param("end", END)).andExpect(status().isForbidden());
+        verifyNoInteractions(tourService);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void teamLeaders_admin_isAllowed() throws Exception {
+        mockMvc.perform(get(TEAM_LEADERS).param("start", START).param("end", END)).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "COLLECTION_MANAGER")
+    void teamLeaders_exposeOnlyIdAndName() throws Exception {
+        TeamLeaderResponse leader = new TeamLeaderResponse();
+        leader.setId("tl");
+        leader.setFullName("Sami");
+        when(tourService.getAvailableTeamLeaders(Instant.parse(START), Instant.parse(END))).thenReturn(List.of(leader));
+
+        mockMvc.perform(get(TEAM_LEADERS).param("start", START).param("end", END))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].length()").value(2))
+                .andExpect(jsonPath("$[0].id").value("tl"))
+                .andExpect(jsonPath("$[0].fullName").value("Sami"));
+    }
+
+    @Test
+    @WithMockUser(roles = "COLLECTION_MANAGER")
+    void teamLeaders_withoutEnd_isBadRequest() throws Exception {
+        mockMvc.perform(get(TEAM_LEADERS).param("start", START)).andExpect(status().isBadRequest());
+        verifyNoInteractions(tourService);
     }
 
     // --- equipment ---

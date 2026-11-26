@@ -1,0 +1,26 @@
+.tour-page { min-height: 0; }
+.tour-page .review { left: 124px; width: 440px; }
+.tour-page .map { --left: 580px; }
+@media (max-width: 1279px) { .tour-page .review { width: 390px; } .tour-page .map { --left: 530px; } }
+.page .back { display: inline-flex; text-decoration: none; }
+.tour-gone { margin-top: 20px; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.panel-body > h2:first-child { margin-top: 0; }
+.panel-body .notice { margin-top: 20px; }
+.builder-foot .foot-pair:has(> .button) { justify-content: flex-start; margin: 0; }
+.foot-pair.links { align-items: center; flex-wrap: wrap; }
+.foot-pair.links:has(> .button-quiet:first-child) { margin: 0 -10px; }
+.foot-pair a { text-decoration: none; }
+.foot-pair a.button { display: inline-flex; align-items: center; }
+.foot-pair.changes { gap: 4px; align-items: center; }
+/* Details first, with the place in a small map beside them (request, report, mill) */
+.tour-page.detail-page { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: minmax(0, 1fr); align-items: start; gap: 20px; padding: 16px 16px 16px 0; }
+.tour-page.detail-page .review { position: relative; left: auto; width: auto; max-height: 100%; border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+.tour-page.detail-page .builder-body { columns: 2 300px; column-gap: 32px; }
+.tour-page.detail-page .builder-body > * { break-inside: avoid; }
+.tour-page.detail-page .builder-body > h2 { break-after: avoid; }
+.tour-page.detail-page .map { --left: 0px; position: relative; inset: auto; height: 360px; border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); }
+@media (max-width: 1279px) { .tour-page.detail-page { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; } .tour-page.detail-page .review { width: auto; } .tour-page.detail-page .map { height: 300px; } }
+/* Beside the menu, not under it: nothing here runs under the menu */
+.shell > .tour-page.detail-page { grid-column: 2; }
+/* A note stays with the facts it explains */
+.tour-page.detail-page .builder-body > :is(.review-note, .note, .notice) { break-before: avoid; }
